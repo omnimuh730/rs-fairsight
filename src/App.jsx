@@ -1,12 +1,13 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { PieChart } from '@mui/x-charts/PieChart';
 import "./App.css";
 
 const ColorBar = ({ percentages, colors }) => {
 	const total = percentages.reduce((sum, percent) => sum + percent, 0);
 
 	return (
-		<div style={{ display: 'flex', width: '100%', height: '20px' }}>
+		<div style={{ display: 'flex', width: '100%', height: '40px' }}>
 			{percentages.map((percent, index) => {
 				const width = (percent / total) * 100;
 				return (
@@ -23,6 +24,9 @@ const ColorBar = ({ percentages, colors }) => {
 	);
 };
 
+const ACTIVE_COLOR = '#50b8e7';
+const INACTIVE_COLOR = '#FF746C';
+const NOTRUN_COLOR = '#232b2b';
 
 function App() {
 
@@ -34,6 +38,10 @@ function App() {
 		Inactive: 0,
 		Norun: 86400,
 	});
+	useEffect(() => {
+		const interval = setInterval(syncTimeData, 10000);
+		return () => clearInterval(interval); // Cleanup on unmount
+	}, []);
 
 
 	// Function to parse the log and calculate durations
@@ -57,17 +65,17 @@ function App() {
 			//	  console.log(state, start, end, duration);
 
 			if (state === "Not run") {
-				colorSlot.push("#ffff00");
+				colorSlot.push(NOTRUN_COLOR);
 				percentSlot.push(duration / 864000);
 				notRunDuration += duration;
 			}
 			else if (state === "Inactive") {
-				colorSlot.push("#ff0000");
+				colorSlot.push(INACTIVE_COLOR);
 				percentSlot.push(duration / 864000);
 				inactiveDuration += duration;
 			}
 			else if (state === "Active") {
-				colorSlot.push("#0000ff");
+				colorSlot.push(ACTIVE_COLOR);
 				percentSlot.push(duration / 864000);
 				activeDuration += duration;
 			}
@@ -101,11 +109,45 @@ function App() {
 			<button onClick={syncTimeData}>Sync</button>
 
 			<ColorBar percentages={trackedDurationSlot} colors={trackedColorSlot} />
-			<p>
-								Active: {activeInfo.Active}
-				InActive: {activeInfo.Inactive}
-				Not run: {activeInfo.Norun}
-			</p>
+
+			<PieChart
+				colors = {[
+					ACTIVE_COLOR, // Active
+                    INACTIVE_COLOR, // Inactive
+                    NOTRUN_COLOR, // Not Running
+				]}
+				series={[
+					{
+						data: [
+							{ 
+								id: 0, 
+								value: activeInfo.Active, 
+								label: `Active: ${Math.floor(activeInfo.Active / 3600)}h ${Math.floor((activeInfo.Active % 3600) / 60)}m ${activeInfo.Active % 60}s` 
+							},
+							{
+								id: 1, 
+								value: activeInfo.Inactive,
+								label: `InActive: ${Math.floor(activeInfo.Inactive / 3600)}h ${Math.floor((activeInfo.Inactive % 3600) / 60)}m ${activeInfo.Inactive % 60}s` 
+							},
+							{ 
+								id: 2, 
+								value: activeInfo.Norun, 
+								label: `Not Tracked: ${Math.floor(activeInfo.Norun / 3600)}h ${Math.floor((activeInfo.Norun % 3600) / 60)}m ${activeInfo.Norun % 60}s` 
+							},
+						],
+						innerRadius: 30,
+						outerRadius: 100,
+						paddingAngle: 1,
+						cornerRadius: 5,
+						startAngle: -45,
+						endAngle: 360,
+						cx: 150,
+						cy: 150,
+					}
+				]}
+				width={500}
+				height={300}
+			/>
 		</main>
 	);
 }

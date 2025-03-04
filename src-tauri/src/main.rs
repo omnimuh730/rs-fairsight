@@ -17,7 +17,7 @@ use std::collections::HashMap;
 use tauri::tray::TrayIconBuilder;
 use tauri::include_image;
 
-static INACTIVE_TIME_PERIOD: u64 = 5;
+static INACTIVE_TIME_PERIOD: u64 = 30;
 
 lazy_static! {
     static ref LAST_TRACKED_INACTIVE_TIME: Mutex<u64> = Mutex::new(0);
