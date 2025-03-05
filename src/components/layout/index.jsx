@@ -5,7 +5,7 @@ import { BrowserRouter as Router, Route, Routes, Link, Navigate } from 'react-ro
 import {
     AppBar, Box, Divider, Drawer, IconButton,
     List, ListItem, ListItemButton, ListItemIcon, ListItemText,
-    Toolbar, Typography, MenuIcon
+    Toolbar, Typography
 } from '@mui/material';
 
 import CssBaseline from '@mui/material/CssBaseline';
@@ -14,10 +14,14 @@ import {
     Timer,
     Timeline,
     AutoGraph,
-    Feedback
+    Feedback,
+    Menu
 } from '@mui/icons-material'
 
-import ShowTodayCard from '../card/ShowToday';
+import ShowTodayCard from '../ShowTodayPage/ShowToday';
+import WeeklyActivityPage from '../WeeklyActivityPage';
+import AnalyticsPage from '../AnalyticsPage';
+import FeedbackPage from '../FeedbackPage';
 
 const drawerWidth = 240;
 
@@ -28,49 +32,6 @@ const listItems = [
   { text: 'Analytics', icon: <AutoGraph />, path: '/sent' },
   { text: 'Feedback', icon: <Feedback />, path: '/drafts' },
 ];
-
-// Example page components
-const InboxPage = () => (
-  <Box>
-    <ShowTodayCard/>
-  </Box>
-);
-
-const StarredPage = () => (
-  <Box>
-    <Typography variant="h4">Starred</Typography>
-    <Typography sx={{ marginBottom: 2 }}>
-      These are your starred items.
-    </Typography>
-  </Box>
-);
-
-const SentPage = () => (
-  <Box>
-    <Typography variant="h4">Sent</Typography>
-    <Typography sx={{ marginBottom: 2 }}>
-      These are your sent messages.
-    </Typography>
-  </Box>
-);
-
-const DraftsPage = () => (
-  <Box>
-    <Typography variant="h4">Drafts</Typography>
-    <Typography sx={{ marginBottom: 2 }}>
-      Your draft messages are saved here.
-    </Typography>
-  </Box>
-);
-
-const NotFoundPage = () => (
-  <Box>
-    <Typography variant="h4">404 - Page Not Found</Typography>
-    <Typography sx={{ marginBottom: 2 }}>
-      Sorry, the page you are looking for does not exist.
-    </Typography>
-  </Box>
-);
 
 function ResponsiveDrawer(props) {
   const { window } = props;
@@ -129,7 +90,7 @@ function ResponsiveDrawer(props) {
             onClick={handleDrawerToggle}
             sx={{ mr: 2, display: { sm: 'none' } }}
           >
-            <MenuIcon />
+            <Menu/>
           </IconButton>
           <Typography variant="h6" noWrap component="div">
             Project Fairsight - o1
@@ -175,14 +136,15 @@ function ResponsiveDrawer(props) {
         sx={{ flexGrow: 1, p: 3, width: { sm: `calc(100% - ${drawerWidth}px)` } }}
       >
         <Toolbar />
+        <Box>
         <Routes>
-          <Route path="/inbox" element={<InboxPage />} />
-          <Route path="/starred" element={<StarredPage />} />
-          <Route path="/sent" element={<SentPage />} />
-          <Route path="/drafts" element={<DraftsPage />} />
-          <Route path="/" element={<Navigate to="/inbox" />} /> {/* Default route */}
-          <Route path="*" element={<NotFoundPage />} /> {/* 404 route */}
+          <Route path="/inbox" element={<ShowTodayCard />} />
+          <Route path="/starred" element={<WeeklyActivityPage />} />
+          <Route path="/sent" element={<AnalyticsPage />} />
+          <Route path="/drafts" element={<FeedbackPage />} />
+          <Route path="*" element={<Navigate to="/inbox" />} /> {/* Default route */}
         </Routes>
+        </Box>
       </Box>
     </Box>
   );
