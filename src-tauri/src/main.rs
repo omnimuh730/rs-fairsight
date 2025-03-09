@@ -1,7 +1,4 @@
-#![cfg_attr(
-    all(not(debug_assertions), target_os = "windows"),
-    windows_subsystem = "windows"
-)]
+#![cfg_attr(all(not(debug_assertions), target_os = "windows"), windows_subsystem = "windows")]
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 use winapi::um::winuser::{
     SetWindowsHookExA,
@@ -17,10 +14,10 @@ use std::thread;
 use std::time::{ SystemTime, UNIX_EPOCH };
 use std::sync::Mutex;
 use lazy_static::lazy_static;
-use std::fs::{ self, OpenOptions };
-use std::io::{ self, Write };
+use std::fs::{ self, OpenOptions, File };
+use std::io::{ self, Read, Write };
 use std::path::Path;
-use chrono::{DateTime, Local, NaiveDate, TimeZone};
+use chrono::{ DateTime, Local, NaiveDate, TimeZone };
 use tauri::{
     tray::{ TrayIconBuilder, TrayIconEvent },
     menu::{ MenuBuilder, MenuItem },
@@ -28,8 +25,10 @@ use tauri::{
 };
 use std::collections::HashMap;
 
+use std::process;
+
 use tauri::include_image;
-use tauri::Manager;
+use tauri::{ Manager, AppHandle };
 
 static INACTIVE_TIME_PERIOD: u64 = 30;
 
@@ -62,7 +61,7 @@ fn aggregate_week_activity_logs(data_list: Vec<String>) -> Vec<String> {
         logdb_list.push(result); // Push the String (success or error message)
     }
     // Print the entire logdb_list
-//    println!("Debug: logdb_list = {:?}", logdb_list);
+    //    println!("Debug: logdb_list = {:?}", logdb_list);
     logdb_list
 }
 
@@ -102,6 +101,64 @@ fn setup_hooks() {
     });
 }
 
+// Check if a process with the given PID is running (platform-specific)
+fn is_process_running(pid: u32) -> bool {
+    #[cfg(target_os = "windows")]
+    {
+        use std::process::Command;
+        let output = Command::new("tasklist")
+            .arg("/FI")
+            .arg(format!("PID eq {}", pid))
+            .output()
+            .expect("Failed to execute tasklist");
+        output.stdout.windows(pid.to_string().len()).any(|w| w == pid.to_string().as_bytes())
+    }
+}
+
+// Ensure only one instance is running using a lock file with PID
+fn ensure_single_instance(app_handle: &AppHandle) -> Result<std::path::PathBuf, String> {
+    let lock_file_path = app_handle
+        .path()
+        .app_data_dir()
+        .map_err(|e| format!("Failed to get app data directory: {}", e))?
+        .join("app.lock");
+
+    // Ensure the parent directory exists
+    if let Some(parent_dir) = lock_file_path.parent() {
+        if !parent_dir.exists() {
+            std::fs
+                ::create_dir_all(parent_dir)
+                .map_err(|e| format!("Failed to create directory for lock file: {}", e))?;
+        }
+    }
+
+    let my_pid = process::id();
+
+    if Path::new(&lock_file_path).exists() {
+        let mut file = File::open(&lock_file_path).map_err(|e|
+            format!("Failed to open lock file: {}", e)
+        )?;
+        let mut contents = String::new();
+        file.read_to_string(&mut contents).map_err(|e| format!("Failed to read lock file: {}", e))?;
+        if let Ok(existing_pid) = contents.trim().parse::<u32>() {
+            if is_process_running(existing_pid) {
+                return Err(format!("Another instance (PID: {}) is already running.", existing_pid));
+            } else {
+                println!("Found stale lock file from PID {}, removing it.", existing_pid);
+                fs
+                    ::remove_file(&lock_file_path)
+                    .map_err(|e| format!("Failed to remove stale lock file: {}", e))?;
+            }
+        }
+    }
+
+    let mut file = File::create(&lock_file_path).map_err(|e|
+        format!("Failed to create lock file: {}", e)
+    )?;
+    write!(file, "{}", my_pid).map_err(|e| format!("Failed to write PID to lock file: {}", e))?;
+
+    Ok(lock_file_path)
+}
 fn main() {
     // Safe to lock mutex here without unsafe
     *LAST_TRACKED_INACTIVE_TIME.lock().unwrap() = get_current_time();
@@ -114,6 +171,17 @@ fn main() {
     tauri::Builder
         ::default()
         .setup(|app| {
+            let app_handle = app.handle().clone();
+
+            // Ensure single instance; exit if another is running
+            let _lock_file_path = match ensure_single_instance(&app_handle) {
+                Ok(path) => path,
+                Err(e) => {
+                    println!("{}", e);
+                    std::process::exit(1);
+                }
+            };
+
             let quit = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
             let hide = MenuItem::with_id(app, "hide", "Hide", true, None::<&str>)?;
             let show = MenuItem::with_id(app, "show", "Show", true, None::<&str>)?;
@@ -149,7 +217,6 @@ fn main() {
                     }
                 })
                 .build(app)?;
-
             Ok(())
         })
         .on_window_event(|app, event| {
@@ -158,6 +225,12 @@ fn main() {
                     if let Some(window) = app.get_webview_window("main") {
                         window.hide().unwrap();
                         api.prevent_close();
+                    }
+                }
+                WindowEvent::Destroyed => {
+                    // Clean up lock file when the last window is destroyed
+                    if let Ok(lock_file_path) = ensure_single_instance(&app.app_handle()) {
+                        let _ = fs::remove_file(&lock_file_path);
                     }
                 }
                 _ => {}
@@ -214,22 +287,28 @@ fn aggregate_log_results(file_name: &str) -> Result<String, Box<dyn std::error::
         let parts: Vec<&str> = line.split(" - ").collect();
         if parts.len() == 2 {
             if line.starts_with("Active time") {
-                if let (Ok(period_end), Ok(period_start)) = (
-                    parts[0].split_whitespace().last().unwrap().parse::<i64>(),
-                    parts[1].parse::<i64>(),
-                ) {
+                if
+                    let (Ok(period_end), Ok(period_start)) = (
+                        parts[0].split_whitespace().last().unwrap().parse::<i64>(),
+                        parts[1].parse::<i64>(),
+                    )
+                {
                     let start = period_start;
                     let end = period_end;
                     active_groups
                         .entry(start)
-                        .and_modify(|e| *e = (*e).max(end))
+                        .and_modify(|e| {
+                            *e = (*e).max(end);
+                        })
                         .or_insert(end);
                 }
             } else if line.starts_with("Inactive time") {
-                if let (Ok(period_end), Ok(period_start)) = (
-                    parts[0].split_whitespace().last().unwrap().parse::<i64>(),
-                    parts[1].parse::<i64>(),
-                ) {
+                if
+                    let (Ok(period_end), Ok(period_start)) = (
+                        parts[0].split_whitespace().last().unwrap().parse::<i64>(),
+                        parts[1].parse::<i64>(),
+                    )
+                {
                     let start_time = Local.timestamp_opt(period_start, 0).unwrap();
                     let end_time = Local.timestamp_opt(period_end, 0).unwrap();
                     inactive_periods.push((start_time, end_time));
@@ -286,12 +365,9 @@ fn aggregate_log_results(file_name: &str) -> Result<String, Box<dyn std::error::
 
     let mut output = String::new();
     for (start, end, event_type) in &final_events {
-        output.push_str(&format!(
-            "{}: {} - {}\n",
-            event_type,
-            start.format("%H:%M:%S"),
-            end.format("%H:%M:%S")
-        ));
+        output.push_str(
+            &format!("{}: {} - {}\n", event_type, start.format("%H:%M:%S"), end.format("%H:%M:%S"))
+        );
     }
     output.push('\n');
 
