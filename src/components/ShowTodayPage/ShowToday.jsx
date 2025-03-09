@@ -5,6 +5,8 @@ import { PieChart } from '@mui/x-charts/PieChart';
 
 import { Button } from "@mui/material";
 
+import { ACTIVE_COLOR, INACTIVE_COLOR, NOTRUN_COLOR } from '../../utils/colorSetting';
+
 const ColorBar = ({ percentages, colors }) => {
     const total = percentages.reduce((sum, percent) => sum + percent, 0);
 
@@ -25,10 +27,6 @@ const ColorBar = ({ percentages, colors }) => {
         </div>
     );
 };
-
-const ACTIVE_COLOR = '#50b8e7';
-const INACTIVE_COLOR = '#FF746C';
-const NOTRUN_COLOR = '#232b2b';
 const ShowTodayCard = () => {
 
     const [trackedColorSlot, setTrackedColorSlot] = useState([]);
@@ -96,7 +94,12 @@ const ShowTodayCard = () => {
 
     async function syncTimeData() {
         try {
-            const data = await invoke("sync_time_data"); // Fetch data from Tauri
+            // Get today's date
+            const today = new Date();
+
+            // Format the date as YYYY-MM-DD.txt
+            const reportDateFormattedText = `rs-fairsight(${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}).txt`;
+            const data = await invoke("sync_time_data", { reportDate: reportDateFormattedText}); // Fetch data from Tauri
             // Assuming data is a string like the log you provided
             parseLog(data);
             //      setTimeData(processedData); // Update state with parsed data
