@@ -54,6 +54,8 @@ use core_graphics::event::{
 };
 
 use tauri::include_image;
+use tauri::{Manager};
+use tauri_plugin_autostart::{MacosLauncher, ManagerExt};
 
 static INACTIVE_TIME_PERIOD: u64 = 30;
 
@@ -199,26 +201,6 @@ fn main() {
     #[cfg(desktop)]
     {
         builder = builder.plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
-            /*
-            if let Some(window) = app.get_webview_window("main") {
-                #[cfg(target_os = "macos")]
-                let _ = window.show();
-                let _ = window.set_focus();
-            } else {
-                let url = if cfg!(debug_assertions) {
-                    WindowUrl::External("http://localhost:1420".parse().unwrap())
-                } else {
-                    WindowUrl::App("".into())
-                };
-                let window = WindowBuilder::new(app, "main", url)
-                    .title("rs-fairsight")
-                    .build()
-                    .expect("Failed to create main window");
-                #[cfg(target_os="macos")]
-                let _ = window.show();
-                let _ = window.set_focus();
-            }
-            */
             let _ = app.get_webview_window("main")
                        .expect("no main window")
                        .set_focus();
@@ -234,7 +216,16 @@ fn main() {
     setup_hooks();
 
     builder
+        .plugin(tauri_plugin_autostart::init(
+            MacosLauncher::LaunchAgent, // macOS autostart method
+            None,                       // No additional args
+        ))
         .setup(|app| {
+            // Automatically enable autostart on first run (optional)
+            app.autolaunch()
+                .enable()
+                .expect("Failed to enable autostart");
+
             let quit = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
             let hide = MenuItem::with_id(app, "hide", "Hide", true, None::<&str>)?;
             let show = MenuItem::with_id(app, "show", "Show", true, None::<&str>)?;
