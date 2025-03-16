@@ -72,8 +72,10 @@ fn greet(name: &str) -> String {
 
 #[tauri::command]
 fn sync_time_data(report_date: &str) -> String {
-    let log_result = aggregate_log_results(report_date).expect("Failed to aggregate log results");
-    log_result
+    match aggregate_log_results(report_date) {
+        Ok(result) => result,  // Return the String from aggregate_log_results
+        Err(e) => format!("Error: {}", e),  // Convert error to String
+    }
 }
 
 #[tauri::command]
@@ -291,6 +293,24 @@ fn get_current_time() -> u64 {
     }
 }
 
+#[cfg(target_os = "windows")]
+unsafe extern "system" fn keyboard_hook_callback(
+    code: i32,
+    w_param: usize,
+    l_param: isize
+) -> isize {
+    if code >= 0 && w_param == (WM_KEYDOWN as usize) {
+        let _ = update_track_time(get_current_time());
+    }
+    unsafe { CallNextHookEx(ptr::null_mut(), code, w_param, l_param) }
+}
+#[cfg(target_os = "windows")]
+unsafe extern "system" fn mouse_hook_callback(code: i32, w_param: usize, l_param: isize) -> isize {
+    if code >= 0 {
+        let _ = update_track_time(get_current_time());
+    }
+    unsafe { CallNextHookEx(ptr::null_mut(), code, w_param, l_param) }
+}
 fn aggregate_log_results(file_name: &str) -> Result<String, Box<dyn std::error::Error>> {
     let log_dir = "fairsight-log";
     let file_path = Path::new(log_dir).join(&file_name);
@@ -304,39 +324,40 @@ fn aggregate_log_results(file_name: &str) -> Result<String, Box<dyn std::error::
         return Ok(format!("No log file found for {}", file_name));
     }
 
-    // Extract date from filename (e.g., "rs-fairsight(2025-03-03).txt")
     let date_str = file_name
         .strip_prefix("rs-fairsight(")
         .and_then(|s| s.strip_suffix(").txt"))
         .ok_or("Invalid filename format")?;
     let target_date = NaiveDate::parse_from_str(date_str, "%Y-%m-%d")?;
 
-    // Define the day's boundaries using the date from filename
     let day_start = Local.from_local_datetime(&target_date.and_hms_opt(0, 0, 0).unwrap()).unwrap();
     let day_end = Local.from_local_datetime(&target_date.and_hms_opt(23, 59, 59).unwrap()).unwrap();
 
-    // Rest of the existing logic remains largely the same
     let mut active_groups: HashMap<i64, i64> = HashMap::new();
     let mut inactive_periods: Vec<(DateTime<Local>, DateTime<Local>)> = Vec::new();
 
-    // Read raw bytes since encrypted data isn't plain text
     let content = fs::read(&file_path)?;
     let mut offset = 0;
 
     while offset < content.len() {
-        if content.len() - offset < 12 {
-            break; // Not enough bytes for nonce
+        if content.len() - offset < 12 + 4 {
+            break; // Not enough bytes for nonce (12) + length (4)
         }
 
         // Read nonce (12 bytes)
         let nonce_bytes: [u8; 12] = content[offset..offset + 12].try_into()?;
         offset += 12;
 
-        // Find the next line boundary (assuming encrypted lines are separated somehow, e.g., by length)
-        // For simplicity, assume we know encrypted data length or use a delimiter (not implemented here)
-        let remaining = &content[offset..];
-        let encrypted_len = remaining.len().min(128); // Adjust based on max expected encrypted size
-        let mut encrypted_data = remaining[..encrypted_len].to_vec();
+        // Read length (4 bytes)
+        let len_bytes: [u8; 4] = content[offset..offset + 4].try_into()?;
+        let encrypted_len = u32::from_le_bytes(len_bytes) as usize;
+        offset += 4;
+
+        if content.len() - offset < encrypted_len {
+            break; // Not enough data for encrypted content
+        }
+
+        let mut encrypted_data = content[offset..offset + encrypted_len].to_vec();
         offset += encrypted_len;
 
         // Decrypt the line
@@ -347,52 +368,69 @@ fn aggregate_log_results(file_name: &str) -> Result<String, Box<dyn std::error::
         let parts: Vec<&str> = decrypted_line.split(" - ").collect();
 
         if parts.len() == 2 {
-			if decrypted_line.starts_with("Active time") {
-                if
-                    let (Ok(period_end), Ok(period_start)) = (
-                        parts[0].split_whitespace().last().unwrap().parse::<i64>(),
-                        parts[1].parse::<i64>(),
-                    )
-                {
-                    let start = period_start;
-                    let end = period_end;
-                    active_groups
-                        .entry(start)
-                        .and_modify(|e| {
-                            *e = (*e).max(end);
-                        })
-                        .or_insert(end);
+            if decrypted_line.starts_with("Active time") {
+                println!("inactive-start '{}' inactive-end '{}'", parts[0], parts[1]);
+
+                let end_str = parts[0].split_whitespace().last().unwrap();
+                let start_str = parts[1].trim();
+
+                println!("end_str: '{}'", end_str);
+                println!("start_str: '{}'", start_str);
+
+                let end_result = end_str.parse::<i64>();
+                let start_result = start_str.parse::<i64>();
+
+                match (&end_result, &start_result) {
+                    // Use references to avoid moving
+                    (Ok(period_end), Ok(period_start)) => {
+                        let start = *period_start; // Dereference the i64 values
+                        let end = *period_end;
+                        println!("active-start {} active-end {}", start, end);
+                        active_groups
+                            .entry(start)
+                            .and_modify(|e| {
+                                *e = (*e).max(end);
+                            })
+                            .or_insert(end);
+                    }
+                    _ => {
+                        println!("Failed to parse: end={:?}, start={:?}", end_result, start_result);
+                    }
                 }
             } else if decrypted_line.starts_with("Inactive time") {
-                if
-                    let (Ok(period_end), Ok(period_start)) = (
-                        parts[0].split_whitespace().last().unwrap().parse::<i64>(),
-                        parts[1].parse::<i64>(),
-                    )
-                {
-                    let start_time = Local.timestamp_opt(period_start, 0).unwrap();
-                    let end_time = Local.timestamp_opt(period_end, 0).unwrap();
-                    inactive_periods.push((start_time, end_time));
+                let end_str = parts[0].split_whitespace().last().unwrap();
+                let start_str = parts[1].trim();
+
+                match (end_str.parse::<i64>(), start_str.parse::<i64>()) {
+                    (Ok(period_end), Ok(period_start)) => {
+                        let start_time = Local.timestamp_opt(period_start, 0).unwrap();
+                        let end_time = Local.timestamp_opt(period_end, 0).unwrap();
+                        inactive_periods.push((start_time, end_time));
+                    }
+                    _ => {
+                        println!(
+                            "Failed to parse inactive time: end='{}', start='{}'",
+                            end_str,
+                            start_str
+                        );
+                    }
                 }
             }
         }
     }
 
+    // Rest of the function remains unchanged...
     let mut all_events: Vec<(DateTime<Local>, DateTime<Local>, &str)> = Vec::new();
-
     for (start, max_end) in active_groups {
         let start_time = Local.timestamp_opt(start, 0).unwrap();
         let end_time = Local.timestamp_opt(max_end, 0).unwrap();
         all_events.push((start_time, end_time, "Active"));
     }
-
     for (start, end) in inactive_periods {
         all_events.push((start, end, "Inactive"));
     }
-
     all_events.sort_by(|a, b| a.0.cmp(&b.0));
 
-    // Filter events to only include those overlapping with the target date
     let mut target_events: Vec<(DateTime<Local>, DateTime<Local>, &str)> = all_events
         .into_iter()
         .filter(|(start, end, _)| *start <= day_end && *end >= day_start)
@@ -434,6 +472,7 @@ fn aggregate_log_results(file_name: &str) -> Result<String, Box<dyn std::error::
 
     Ok(output)
 }
+
 fn update_track_time(current_time: u64) -> io::Result<()> {
     let mut last_tracked_inactive_time = LAST_TRACKED_INACTIVE_TIME.lock().unwrap();
     let mut last_tracked_active_start_time = LAST_TRACKED_ACTIVE_START_TIME.lock().unwrap();
@@ -451,18 +490,18 @@ fn update_track_time(current_time: u64) -> io::Result<()> {
 
     if current_time < *last_tracked_inactive_time {
         let message = "Time Sync error\n";
-        let (encrypted_data, nonce) = encrypt_string(message, &KEY).map_err(|_| 
+        let (encrypted_data, nonce) = encrypt_string(message, &KEY).map_err(|_|
             io::Error::new(io::ErrorKind::Other, "Encryption failed")
         )?;
-        file.write_all(&nonce)?; // Write nonce first
-        file.write_all(&encrypted_data)?; // Then encrypted data
+        file.write_all(&nonce)?; // Write nonce (12 bytes)
+        file.write_all(&encrypted_data)?; // Write length + encrypted data
     } else if current_time - *last_tracked_inactive_time > INACTIVE_TIME_PERIOD {
         let message = format!(
             "Inactive time over 5seconds {} - {}\n",
             current_time,
             *last_tracked_inactive_time
         );
-        let (encrypted_data, nonce) = encrypt_string(&message, &KEY).map_err(|_| 
+        let (encrypted_data, nonce) = encrypt_string(&message, &KEY).map_err(|_|
             io::Error::new(io::ErrorKind::Other, "Encryption failed")
         )?;
         file.write_all(&nonce)?;
@@ -475,7 +514,7 @@ fn update_track_time(current_time: u64) -> io::Result<()> {
             *last_tracked_active_end_time,
             *last_tracked_active_start_time
         );
-        let (encrypted_data, nonce) = encrypt_string(&message, &KEY).map_err(|_| 
+        let (encrypted_data, nonce) = encrypt_string(&message, &KEY).map_err(|_|
             io::Error::new(io::ErrorKind::Other, "Encryption failed")
         )?;
         file.write_all(&nonce)?;
@@ -485,24 +524,7 @@ fn update_track_time(current_time: u64) -> io::Result<()> {
     *last_tracked_inactive_time = current_time;
     Ok(())
 }
-#[cfg(target_os = "windows")]
-unsafe extern "system" fn keyboard_hook_callback(
-    code: i32,
-    w_param: usize,
-    l_param: isize
-) -> isize {
-    if code >= 0 && w_param == (WM_KEYDOWN as usize) {
-        let _ = update_track_time(get_current_time());
-    }
-    unsafe { CallNextHookEx(ptr::null_mut(), code, w_param, l_param) }
-}
-#[cfg(target_os = "windows")]
-unsafe extern "system" fn mouse_hook_callback(code: i32, w_param: usize, l_param: isize) -> isize {
-    if code >= 0 {
-        let _ = update_track_time(get_current_time());
-    }
-    unsafe { CallNextHookEx(ptr::null_mut(), code, w_param, l_param) }
-}
+
 
 // Encrypt a string, returning the encrypted bytes and nonce
 fn encrypt_string(
@@ -520,10 +542,15 @@ fn encrypt_string(
     let mut data = plaintext.as_bytes().to_vec();
     key.seal_in_place_append_tag(nonce, Aad::empty(), &mut data)?;
 
-    Ok((data, nonce_bytes))
+    // Prepend the length of the encrypted data
+    let mut result = Vec::new();
+    let len = data.len() as u32;
+    result.extend_from_slice(&len.to_le_bytes()); // 4 bytes for length
+    result.extend_from_slice(&data);
+
+    Ok((result, nonce_bytes))
 }
 
-// Decrypt a string, given the encrypted bytes, key, and nonce
 // Decrypt a string from encrypted bytes and nonce
 fn decrypt_string(
     encrypted_data: &mut Vec<u8>,
