@@ -88,8 +88,7 @@ fn aggregate_week_activity_logs(data_list: Vec<String>) -> Vec<String> {
             .unwrap_or_else(|e| format!("Error aggregating {}: {}", styled, e)); // Convert Err to String
         logdb_list.push(result); // Push the String (success or error message)
     }
-    // Print the entire logdb_list
-    //    println!("Debug: logdb_list = {:?}", logdb_list);
+    
     logdb_list
 }
 #[cfg(target_os = "windows")]
@@ -369,13 +368,8 @@ fn aggregate_log_results(file_name: &str) -> Result<String, Box<dyn std::error::
 
         if parts.len() == 2 {
             if decrypted_line.starts_with("Active time") {
-                println!("inactive-start '{}' inactive-end '{}'", parts[0], parts[1]);
-
                 let end_str = parts[0].split_whitespace().last().unwrap();
                 let start_str = parts[1].trim();
-
-                println!("end_str: '{}'", end_str);
-                println!("start_str: '{}'", start_str);
 
                 let end_result = end_str.parse::<i64>();
                 let start_result = start_str.parse::<i64>();
@@ -385,7 +379,6 @@ fn aggregate_log_results(file_name: &str) -> Result<String, Box<dyn std::error::
                     (Ok(period_end), Ok(period_start)) => {
                         let start = *period_start; // Dereference the i64 values
                         let end = *period_end;
-                        println!("active-start {} active-end {}", start, end);
                         active_groups
                             .entry(start)
                             .and_modify(|e| {
