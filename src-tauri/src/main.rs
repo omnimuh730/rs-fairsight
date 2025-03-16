@@ -39,6 +39,7 @@ use core_foundation::base::{ kCFAllocatorDefault, TCFType };
 use core_foundation::runloop::{ CFRunLoop, CFRunLoopSource };
 #[cfg(target_os = "macos")]
 use core_foundation::mach_port::{ CFMachPortRef, CFMachPortCreateRunLoopSource };
+
 #[cfg(target_os = "macos")]
 use core_graphics::event::{
     CGEvent,
@@ -49,6 +50,8 @@ use core_graphics::event::{
     CGEventTapPlacement,
     CGEventTapOptions,
 };
+#[cfg(target_os = "macos")]
+use dirs; // Add this import
 
 use tauri::include_image;
 use tauri::{ Manager };
@@ -311,10 +314,20 @@ unsafe extern "system" fn mouse_hook_callback(code: i32, w_param: usize, l_param
     unsafe { CallNextHookEx(ptr::null_mut(), code, w_param, l_param) }
 }
 fn aggregate_log_results(file_name: &str) -> Result<String, Box<dyn std::error::Error>> {
-    let log_dir = "fairsight-log";
-    let file_path = Path::new(log_dir).join(&file_name);
+    
+    let log_dir = if cfg!(target_os = "macos") {
+        let home_dir = dirs::home_dir().ok_or_else(|| io::Error::new(
+            io::ErrorKind::NotFound,
+            "Could not find home directory"
+        ))?;
+        home_dir.join("Documents").join("rs-fairsight")
+    } else {
+        Path::new("fairsight-log").to_path_buf()
+    };
 
-    if !Path::new(log_dir).exists() {
+    let file_path = log_dir.join(&file_name);
+
+    if !log_dir.exists() {
         println!("No log directory found");
         return Ok("No log files found".to_string());
     }
@@ -471,14 +484,24 @@ fn update_track_time(current_time: u64) -> io::Result<()> {
     let mut last_tracked_active_start_time = LAST_TRACKED_ACTIVE_START_TIME.lock().unwrap();
     let mut last_tracked_active_end_time = LAST_TRACKED_ACTIVE_END_TIME.lock().unwrap();
 
-    let log_dir = "fairsight-log";
-    if !Path::new(log_dir).exists() {
-        fs::create_dir(log_dir)?;
+    // Get the Documents directory path based on OS
+    let log_dir = if cfg!(target_os = "macos") {
+        let home_dir = dirs::home_dir().ok_or_else(|| io::Error::new(
+            io::ErrorKind::NotFound,
+            "Could not find home directory"
+        ))?;
+        home_dir.join("Documents").join("rs-fairsight")
+    } else {
+        Path::new("fairsight-log").to_path_buf()
+    };
+
+    // Create directory if it doesn't exist
+    if !log_dir.exists() {
+        fs::create_dir_all(&log_dir)?;
     }
 
     let current_date = Local::now().format("%Y-%m-%d").to_string();
-    let filename = format!("{}/rs-fairsight({}).txt", log_dir, current_date);
-
+    let filename = log_dir.join(format!("rs-fairsight({}).txt", current_date));
     let mut file = OpenOptions::new().write(true).append(true).create(true).open(&filename)?;
 
     if current_time < *last_tracked_inactive_time {
