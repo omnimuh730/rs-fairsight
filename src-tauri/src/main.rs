@@ -12,6 +12,7 @@ use tauri::{
     menu::{ MenuBuilder, MenuItem },
     tray::{ TrayIconBuilder, TrayIconEvent },
     WindowEvent,
+    AppHandle,
 };
 use ring::aead::{ Aad, LessSafeKey, Nonce, UnboundKey, AES_256_GCM };
 use ring::error::Unspecified;
@@ -56,8 +57,12 @@ use dirs; // Add this import
 use tauri::include_image;
 use tauri::{ Manager };
 use tauri_plugin_autostart::{ MacosLauncher, ManagerExt };
+use tauri::Emitter;
+use once_cell::sync::Lazy;
 
 static INACTIVE_TIME_PERIOD: u64 = 30;
+
+static APP_HANDLE: Lazy<Mutex<Option<AppHandle>>> = Lazy::new(|| Mutex::new(None));
 
 lazy_static! {
     static ref LAST_TRACKED_INACTIVE_TIME: Mutex<u64> = Mutex::new(0);
@@ -107,7 +112,10 @@ fn setup_hooks() {
             );
             if kb_hook_id.is_null() {
                 println!("Failed to set keyboard hook");
+                send_message("Failed to set keyboard hook".to_string());
                 return;
+            } else {
+                send_message("Successfully set keyboard hook".to_string());
             }
 
             // Set up mouse hook
@@ -119,7 +127,10 @@ fn setup_hooks() {
             );
             if mouse_hook_id.is_null() {
                 println!("Failed to set mouse hook");
+                send_message("Failed to set mouse hook".to_string());
                 return;
+            } else {
+                send_message("Successfully set mouse hook".to_string());
             }
 
             // Message loop
@@ -228,6 +239,8 @@ fn main() {
         )
         .setup(|app| {
             // Automatically enable autostart on first run (optional)
+            
+            set_app_handle(app.handle());
             app.autolaunch().enable().expect("Failed to enable autostart");
 
             let quit = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
@@ -315,14 +328,20 @@ unsafe extern "system" fn mouse_hook_callback(code: i32, w_param: usize, l_param
 }
 fn aggregate_log_results(file_name: &str) -> Result<String, Box<dyn std::error::Error>> {
     
-    let log_dir = if cfg!(target_os = "macos") {
-        let home_dir = dirs::home_dir().ok_or_else(|| io::Error::new(
-            io::ErrorKind::NotFound,
-            "Could not find home directory"
-        ))?;
-        home_dir.join("Documents").join("rs-fairsight")
-    } else {
-        Path::new("fairsight-log").to_path_buf()
+    let log_dir;
+    #[cfg(target_os = "macos")]
+    {
+        log_dir = if cfg!(target_os = "macos") {
+            let home_dir = dirs::home_dir().ok_or_else(|| io::Error::new(
+                io::ErrorKind::NotFound,
+                "Could not find home directory"
+            ))?;
+            home_dir.join("Documents").join("rs-fairsight")
+        }
+    }
+    #[cfg(target_os = "windows")]
+    {
+        log_dir = Path::new("fairsight-log").to_path_buf()
     };
 
     let file_path = log_dir.join(&file_name);
@@ -485,14 +504,20 @@ fn update_track_time(current_time: u64) -> io::Result<()> {
     let mut last_tracked_active_end_time = LAST_TRACKED_ACTIVE_END_TIME.lock().unwrap();
 
     // Get the Documents directory path based on OS
-    let log_dir = if cfg!(target_os = "macos") {
-        let home_dir = dirs::home_dir().ok_or_else(|| io::Error::new(
-            io::ErrorKind::NotFound,
-            "Could not find home directory"
-        ))?;
-        home_dir.join("Documents").join("rs-fairsight")
-    } else {
-        Path::new("fairsight-log").to_path_buf()
+    let log_dir;
+    #[cfg(target_os = "macos")]
+    {
+        log_dir = if cfg!(target_os = "macos") {
+            let home_dir = dirs::home_dir().ok_or_else(|| io::Error::new(
+                io::ErrorKind::NotFound,
+                "Could not find home directory"
+            ))?;
+            home_dir.join("Documents").join("rs-fairsight")
+        }
+    }
+    #[cfg(target_os = "windows")]
+    {
+        log_dir = Path::new("fairsight-log").to_path_buf()
     };
 
     // Create directory if it doesn't exist
@@ -579,4 +604,21 @@ fn decrypt_string(
 
     let decrypted_data = key.open_in_place(nonce, Aad::empty(), encrypted_data)?;
     String::from_utf8(decrypted_data.to_vec()).map_err(|_| Unspecified)
+}
+
+fn send_message(msg: String) {
+    
+    if let Some(handle) = get_app_handle() {
+        handle.emit("my-event", msg).unwrap();
+    }
+}
+
+fn set_app_handle(handle: &AppHandle) {
+    let mut app_handle = APP_HANDLE.lock().unwrap();
+    *app_handle = Some(handle.clone()); // Clone to store owned value
+}
+
+fn get_app_handle() -> Option<AppHandle> {
+    let app_handle = APP_HANDLE.lock().unwrap();
+    app_handle.clone() // Cloning because AppHandle doesn't implement Copy
 }
