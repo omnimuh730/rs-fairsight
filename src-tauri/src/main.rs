@@ -5,10 +5,8 @@ use lazy_static::lazy_static;
 use std::collections::HashMap;
 use std::fs::{ self, OpenOptions };
 use std::io::{ self, Write };
-#[cfg(target_os = "windows")]
 use std::sync::mpsc::{ self, Sender };
 use std::sync::Mutex;
-#[cfg(target_os = "windows")]
 use std::sync::mpsc::Receiver;
 use std::time::{ SystemTime, UNIX_EPOCH };
 use tauri::{
@@ -71,11 +69,9 @@ static INACTIVE_TIME_PERIOD: u64 = 30;
 
 static APP_HANDLE: Lazy<Mutex<Option<AppHandle>>> = Lazy::new(|| Mutex::new(None));
 
-#[cfg(target_os = "windows")]
 // Define the type of message to send (just the timestamp)
 type TimeUpdateMessage = u64;
 
-#[cfg(target_os = "windows")]
 static EVENT_QUEUE_SENDER: Lazy<Mutex<Sender<TimeUpdateMessage>>> = Lazy::new(|| {
     let (sender, receiver) = mpsc::channel::<TimeUpdateMessage>();
 
@@ -232,7 +228,8 @@ fn event_callback(
 }
 #[cfg(target_os = "macos")]
 fn activity_handler() {
-    let _ = update_track_time(get_current_time());
+    let current_time = get_current_time();
+    let _ = EVENT_QUEUE_SENDER.lock().unwrap().send(current_time);
 }
 fn main() {
     let mut builder = tauri::Builder::default();
@@ -648,7 +645,6 @@ fn get_app_handle() -> Option<AppHandle> {
     app_handle.clone() // Cloning because AppHandle doesn't implement Copy
 }
 
-#[cfg(target_os = "windows")]
 fn event_processing_loop(receiver: Receiver<TimeUpdateMessage>) {
     println!("Starting event processing thread...");
     // The receiver.recv() call will block until a message is available
