@@ -341,7 +341,7 @@ fn aggregate_log_results(file_name: &str) -> Result<String, Box<dyn std::error::
     }
     #[cfg(target_os = "windows")]
     {
-        log_dir = Path::new("fairsight-log").to_path_buf()
+        log_dir = Path::new("C:\\fairsight-log").to_path_buf(); // Updated path for Windows
     };
 
     let file_path = log_dir.join(&file_name);
@@ -517,7 +517,7 @@ fn update_track_time(current_time: u64) -> io::Result<()> {
     }
     #[cfg(target_os = "windows")]
     {
-        log_dir = Path::new("fairsight-log").to_path_buf()
+        log_dir = Path::new("C:\\fairsight-log").to_path_buf(); // Updated path for Windows
     };
 
     // Create directory if it doesn't exist
