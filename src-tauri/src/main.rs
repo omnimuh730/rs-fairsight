@@ -5,8 +5,10 @@ use lazy_static::lazy_static;
 use std::collections::HashMap;
 use std::fs::{ self, OpenOptions };
 use std::io::{ self, Write };
+use std::sync::mpsc::{ self, Sender };
 use std::path::Path;
 use std::sync::Mutex;
+use std::sync::mpsc::Receiver;
 use std::time::{ SystemTime, UNIX_EPOCH };
 use tauri::{
     menu::{ MenuBuilder, MenuItem },
@@ -64,6 +66,20 @@ static INACTIVE_TIME_PERIOD: u64 = 30;
 
 static APP_HANDLE: Lazy<Mutex<Option<AppHandle>>> = Lazy::new(|| Mutex::new(None));
 
+// Define the type of message to send (just the timestamp)
+type TimeUpdateMessage = u64;
+
+static EVENT_QUEUE_SENDER: Lazy<Mutex<Sender<TimeUpdateMessage>>> = Lazy::new(|| {
+    let (sender, receiver) = mpsc::channel::<TimeUpdateMessage>();
+
+    // Spawn the worker thread
+    std::thread::spawn(move || {
+        event_processing_loop(receiver);
+    });
+
+    Mutex::new(sender)
+});
+
 lazy_static! {
     static ref LAST_TRACKED_INACTIVE_TIME: Mutex<u64> = Mutex::new(0);
     static ref LAST_TRACKED_ACTIVE_START_TIME: Mutex<u64> = Mutex::new(0);
@@ -81,8 +97,8 @@ fn greet(name: &str) -> String {
 #[tauri::command]
 fn sync_time_data(report_date: &str) -> String {
     match aggregate_log_results(report_date) {
-        Ok(result) => result,  // Return the String from aggregate_log_results
-        Err(e) => format!("Error: {}", e),  // Convert error to String
+        Ok(result) => result, // Return the String from aggregate_log_results
+        Err(e) => format!("Error: {}", e), // Convert error to String
     }
 }
 
@@ -96,7 +112,7 @@ fn aggregate_week_activity_logs(data_list: Vec<String>) -> Vec<String> {
             .unwrap_or_else(|e| format!("Error aggregating {}: {}", styled, e)); // Convert Err to String
         logdb_list.push(result); // Push the String (success or error message)
     }
-    
+
     logdb_list
 }
 #[cfg(target_os = "windows")]
@@ -239,7 +255,7 @@ fn main() {
         )
         .setup(|app| {
             // Automatically enable autostart on first run (optional)
-            
+
             set_app_handle(app.handle());
             app.autolaunch().enable().expect("Failed to enable autostart");
 
@@ -315,34 +331,108 @@ unsafe extern "system" fn keyboard_hook_callback(
     l_param: isize
 ) -> isize {
     if code >= 0 && w_param == (WM_KEYDOWN as usize) {
-        let _ = update_track_time(get_current_time());
+        //        let _ = update_track_time(get_current_time());
+        let current_time = get_current_time();
+        let _ = EVENT_QUEUE_SENDER.lock().unwrap().send(current_time);
     }
     unsafe { CallNextHookEx(ptr::null_mut(), code, w_param, l_param) }
 }
 #[cfg(target_os = "windows")]
 unsafe extern "system" fn mouse_hook_callback(code: i32, w_param: usize, l_param: isize) -> isize {
     if code >= 0 {
-        let _ = update_track_time(get_current_time());
+        //        let _ = update_track_time(get_current_time());
+        let current_time = get_current_time();
+        let _ = EVENT_QUEUE_SENDER.lock().unwrap().send(current_time); // Send the current time to the channel
     }
     unsafe { CallNextHookEx(ptr::null_mut(), code, w_param, l_param) }
 }
-fn aggregate_log_results(file_name: &str) -> Result<String, Box<dyn std::error::Error>> {
-    
+
+fn update_track_time(current_time: u64) -> io::Result<()> {
+    let mut last_tracked_inactive_time = LAST_TRACKED_INACTIVE_TIME.lock().unwrap();
+    let mut last_tracked_active_start_time = LAST_TRACKED_ACTIVE_START_TIME.lock().unwrap();
+    let mut last_tracked_active_end_time = LAST_TRACKED_ACTIVE_END_TIME.lock().unwrap();
+
+    // Get the Documents directory path based on OS
     let log_dir;
     #[cfg(target_os = "macos")]
     {
         log_dir = if cfg!(target_os = "macos") {
-            let home_dir = dirs::home_dir().ok_or_else(|| io::Error::new(
-                io::ErrorKind::NotFound,
-                "Could not find home directory"
-            ))?;
+            let home_dir = dirs
+                ::home_dir()
+                .ok_or_else(||
+                    io::Error::new(io::ErrorKind::NotFound, "Could not find home directory")
+                )?;
             home_dir.join("Documents").join("rs-fairsight")
-        }
+        };
     }
     #[cfg(target_os = "windows")]
     {
         log_dir = Path::new("C:\\fairsight-log").to_path_buf(); // Updated path for Windows
-    };
+    }
+
+    // Create directory if it doesn't exist
+    if !log_dir.exists() {
+        fs::create_dir_all(&log_dir)?;
+    }
+
+    let current_date = Local::now().format("%Y-%m-%d").to_string();
+    let filename = log_dir.join(format!("rs-fairsight({}).txt", current_date));
+    let mut file = OpenOptions::new().write(true).append(true).create(true).open(&filename)?;
+
+    if current_time < *last_tracked_inactive_time {
+        let message = "Time Sync error\n";
+        let (encrypted_data, nonce) = encrypt_string(message, &KEY).map_err(|_|
+            io::Error::new(io::ErrorKind::Other, "Encryption failed")
+        )?;
+        file.write_all(&nonce)?; // Write nonce (12 bytes)
+        file.write_all(&encrypted_data)?; // Write length + encrypted data
+    } else if current_time - *last_tracked_inactive_time > INACTIVE_TIME_PERIOD {
+        let message = format!(
+            "Inactive time over 5seconds {} - {}\n",
+            current_time,
+            *last_tracked_inactive_time
+        );
+        let (encrypted_data, nonce) = encrypt_string(&message, &KEY).map_err(|_|
+            io::Error::new(io::ErrorKind::Other, "Encryption failed")
+        )?;
+        file.write_all(&nonce)?;
+        file.write_all(&encrypted_data)?;
+        *last_tracked_active_start_time = current_time;
+    } else if *last_tracked_active_end_time != current_time {
+        *last_tracked_active_end_time = current_time;
+        let message = format!(
+            "Active time {} - {}\n",
+            *last_tracked_active_end_time,
+            *last_tracked_active_start_time
+        );
+        let (encrypted_data, nonce) = encrypt_string(&message, &KEY).map_err(|_|
+            io::Error::new(io::ErrorKind::Other, "Encryption failed")
+        )?;
+        file.write_all(&nonce)?;
+        file.write_all(&encrypted_data)?;
+    }
+
+    *last_tracked_inactive_time = current_time;
+    Ok(())
+}
+
+fn aggregate_log_results(file_name: &str) -> Result<String, Box<dyn std::error::Error>> {
+    let log_dir;
+    #[cfg(target_os = "macos")]
+    {
+        log_dir = if cfg!(target_os = "macos") {
+            let home_dir = dirs
+                ::home_dir()
+                .ok_or_else(||
+                    io::Error::new(io::ErrorKind::NotFound, "Could not find home directory")
+                )?;
+            home_dir.join("Documents").join("rs-fairsight")
+        };
+    }
+    #[cfg(target_os = "windows")]
+    {
+        log_dir = Path::new("C:\\fairsight-log").to_path_buf(); // Updated path for Windows
+    }
 
     let file_path = log_dir.join(&file_name);
 
@@ -498,75 +588,6 @@ fn aggregate_log_results(file_name: &str) -> Result<String, Box<dyn std::error::
     Ok(output)
 }
 
-fn update_track_time(current_time: u64) -> io::Result<()> {
-    let mut last_tracked_inactive_time = LAST_TRACKED_INACTIVE_TIME.lock().unwrap();
-    let mut last_tracked_active_start_time = LAST_TRACKED_ACTIVE_START_TIME.lock().unwrap();
-    let mut last_tracked_active_end_time = LAST_TRACKED_ACTIVE_END_TIME.lock().unwrap();
-
-    // Get the Documents directory path based on OS
-    let log_dir;
-    #[cfg(target_os = "macos")]
-    {
-        log_dir = if cfg!(target_os = "macos") {
-            let home_dir = dirs::home_dir().ok_or_else(|| io::Error::new(
-                io::ErrorKind::NotFound,
-                "Could not find home directory"
-            ))?;
-            home_dir.join("Documents").join("rs-fairsight")
-        }
-    }
-    #[cfg(target_os = "windows")]
-    {
-        log_dir = Path::new("C:\\fairsight-log").to_path_buf(); // Updated path for Windows
-    };
-
-    // Create directory if it doesn't exist
-    if !log_dir.exists() {
-        fs::create_dir_all(&log_dir)?;
-    }
-
-    let current_date = Local::now().format("%Y-%m-%d").to_string();
-    let filename = log_dir.join(format!("rs-fairsight({}).txt", current_date));
-    let mut file = OpenOptions::new().write(true).append(true).create(true).open(&filename)?;
-
-    if current_time < *last_tracked_inactive_time {
-        let message = "Time Sync error\n";
-        let (encrypted_data, nonce) = encrypt_string(message, &KEY).map_err(|_|
-            io::Error::new(io::ErrorKind::Other, "Encryption failed")
-        )?;
-        file.write_all(&nonce)?; // Write nonce (12 bytes)
-        file.write_all(&encrypted_data)?; // Write length + encrypted data
-    } else if current_time - *last_tracked_inactive_time > INACTIVE_TIME_PERIOD {
-        let message = format!(
-            "Inactive time over 5seconds {} - {}\n",
-            current_time,
-            *last_tracked_inactive_time
-        );
-        let (encrypted_data, nonce) = encrypt_string(&message, &KEY).map_err(|_|
-            io::Error::new(io::ErrorKind::Other, "Encryption failed")
-        )?;
-        file.write_all(&nonce)?;
-        file.write_all(&encrypted_data)?;
-        *last_tracked_active_start_time = current_time;
-    } else if *last_tracked_active_end_time != current_time {
-        *last_tracked_active_end_time = current_time;
-        let message = format!(
-            "Active time {} - {}\n",
-            *last_tracked_active_end_time,
-            *last_tracked_active_start_time
-        );
-        let (encrypted_data, nonce) = encrypt_string(&message, &KEY).map_err(|_|
-            io::Error::new(io::ErrorKind::Other, "Encryption failed")
-        )?;
-        file.write_all(&nonce)?;
-        file.write_all(&encrypted_data)?;
-    }
-
-    *last_tracked_inactive_time = current_time;
-    Ok(())
-}
-
-
 // Encrypt a string, returning the encrypted bytes and nonce
 fn encrypt_string(
     plaintext: &str,
@@ -607,7 +628,6 @@ fn decrypt_string(
 }
 
 fn send_message(msg: String) {
-    
     if let Some(handle) = get_app_handle() {
         handle.emit("my-event", msg).unwrap();
     }
@@ -621,4 +641,19 @@ fn set_app_handle(handle: &AppHandle) {
 fn get_app_handle() -> Option<AppHandle> {
     let app_handle = APP_HANDLE.lock().unwrap();
     app_handle.clone() // Cloning because AppHandle doesn't implement Copy
+}
+
+fn event_processing_loop(receiver: Receiver<TimeUpdateMessage>) {
+    println!("Starting event processing thread...");
+    // The receiver.recv() call will block until a message is available
+    // or the channel is closed (sender is dropped).
+    while let Ok(current_time) = receiver.recv() {
+        // Call the original logic, handle potential errors here
+        if let Err(e) = update_track_time(current_time) {
+            eprintln!("Error updating track time: {}", e);
+            // Consider more robust error logging here
+        }
+    }
+    // Loop exits when the channel is closed
+    println!("Event processing thread shutting down.");
 }
