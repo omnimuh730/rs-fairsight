@@ -170,14 +170,6 @@ const DateRangePickerComponent = () => {
 					/>
 				</Box>
 			)}
-
-			{selectedItem && (
-				<Box>
-					<pre>
-						Selected Data: {JSON.stringify(selectedItem, null, 2)}
-					</pre>
-				</Box>
-			)}
 		</Stack>
 	);
 };
