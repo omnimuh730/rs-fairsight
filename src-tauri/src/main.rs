@@ -5,9 +5,10 @@ use lazy_static::lazy_static;
 use std::collections::HashMap;
 use std::fs::{ self, OpenOptions };
 use std::io::{ self, Write };
+#[cfg(target_os = "windows")]
 use std::sync::mpsc::{ self, Sender };
-use std::path::Path;
 use std::sync::Mutex;
+#[cfg(target_os = "windows")]
 use std::sync::mpsc::Receiver;
 use std::time::{ SystemTime, UNIX_EPOCH };
 use tauri::{
@@ -21,6 +22,9 @@ use ring::error::Unspecified;
 use ring::rand::{ SecureRandom, SystemRandom };
 #[cfg(target_os = "windows")]
 use std::ptr;
+
+#[cfg(target_os = "windows")]
+use std::path::Path;
 
 #[cfg(target_os = "windows")]
 use std::thread;
@@ -59,6 +63,7 @@ use dirs; // Add this import
 use tauri::include_image;
 use tauri::Manager;
 use tauri_plugin_autostart::{ MacosLauncher, ManagerExt };
+#[cfg(target_os = "windows")]
 use tauri::Emitter;
 use once_cell::sync::Lazy;
 
@@ -66,9 +71,11 @@ static INACTIVE_TIME_PERIOD: u64 = 30;
 
 static APP_HANDLE: Lazy<Mutex<Option<AppHandle>>> = Lazy::new(|| Mutex::new(None));
 
+#[cfg(target_os = "windows")]
 // Define the type of message to send (just the timestamp)
 type TimeUpdateMessage = u64;
 
+#[cfg(target_os = "windows")]
 static EVENT_QUEUE_SENDER: Lazy<Mutex<Sender<TimeUpdateMessage>>> = Lazy::new(|| {
     let (sender, receiver) = mpsc::channel::<TimeUpdateMessage>();
 
@@ -356,14 +363,12 @@ fn update_track_time(current_time: u64) -> io::Result<()> {
     let log_dir;
     #[cfg(target_os = "macos")]
     {
-        log_dir = if cfg!(target_os = "macos") {
-            let home_dir = dirs
-                ::home_dir()
-                .ok_or_else(||
-                    io::Error::new(io::ErrorKind::NotFound, "Could not find home directory")
-                )?;
-            home_dir.join("Documents").join("rs-fairsight")
-        };
+        let home_dir = dirs
+            ::home_dir()
+            .ok_or_else(||
+                io::Error::new(io::ErrorKind::NotFound, "Could not find home directory")
+            )?;
+        log_dir = home_dir.join("Documents").join("rs-fairsight");
     }
     #[cfg(target_os = "windows")]
     {
@@ -420,14 +425,12 @@ fn aggregate_log_results(file_name: &str) -> Result<String, Box<dyn std::error::
     let log_dir;
     #[cfg(target_os = "macos")]
     {
-        log_dir = if cfg!(target_os = "macos") {
-            let home_dir = dirs
-                ::home_dir()
-                .ok_or_else(||
-                    io::Error::new(io::ErrorKind::NotFound, "Could not find home directory")
-                )?;
-            home_dir.join("Documents").join("rs-fairsight")
-        };
+        let home_dir = dirs
+            ::home_dir()
+            .ok_or_else(||
+                io::Error::new(io::ErrorKind::NotFound, "Could not find home directory")
+            )?;
+        log_dir = home_dir.join("Documents").join("rs-fairsight");
     }
     #[cfg(target_os = "windows")]
     {
@@ -627,6 +630,7 @@ fn decrypt_string(
     String::from_utf8(decrypted_data.to_vec()).map_err(|_| Unspecified)
 }
 
+#[cfg(target_os = "windows")]
 fn send_message(msg: String) {
     if let Some(handle) = get_app_handle() {
         handle.emit("my-event", msg).unwrap();
@@ -638,11 +642,13 @@ fn set_app_handle(handle: &AppHandle) {
     *app_handle = Some(handle.clone()); // Clone to store owned value
 }
 
+#[cfg(target_os = "windows")]
 fn get_app_handle() -> Option<AppHandle> {
     let app_handle = APP_HANDLE.lock().unwrap();
     app_handle.clone() // Cloning because AppHandle doesn't implement Copy
 }
 
+#[cfg(target_os = "windows")]
 fn event_processing_loop(receiver: Receiver<TimeUpdateMessage>) {
     println!("Starting event processing thread...");
     // The receiver.recv() call will block until a message is available
