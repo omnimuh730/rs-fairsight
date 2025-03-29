@@ -55,7 +55,7 @@ use core_graphics::event::{
 use dirs; // Add this import
 
 use tauri::include_image;
-use tauri::{ Manager };
+use tauri::Manager;
 use tauri_plugin_autostart::{ MacosLauncher, ManagerExt };
 use tauri::Emitter;
 use once_cell::sync::Lazy;
