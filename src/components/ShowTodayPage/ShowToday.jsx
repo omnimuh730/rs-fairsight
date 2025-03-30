@@ -91,7 +91,7 @@ const ShowTodayCard = () => {
 
     return (
         <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center'}}>
-    <Card sx={{ maxWidth: 600, boxShadow: '0 4px 20px rgba(0,0,0,0.1)', borderRadius: '15px' }}>
+    <Card sx={{ width: 600, boxShadow: '0 4px 20px rgba(0,0,0,0.1)', borderRadius: '15px' }}>
         <CardContent>
             <Typography variant="h5" sx={{ fontWeight: 'bold', mb: 2, textAlign: 'center', color: '#333' }}>
                 Today's Activity
@@ -146,12 +146,12 @@ const ShowTodayCard = () => {
                             cy: '50%', // Center of the pie chart
                         },
                     ]}
-                    width={500}
-                    height={350}
+                    width={600}
+                    height={400}
                     slotProps={{
                         legend: {
                             direction: 'row',
-                            position: { vertical: 'bottom', horizontal: 'center' },
+                            position: { vertical: 'bottom', horizontal: 'middle'},
                             padding: 10,
                         },
                     }}

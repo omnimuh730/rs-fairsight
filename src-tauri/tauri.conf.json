@@ -13,10 +13,10 @@
     "windows": [
       {
         "title": "rs-fairsight",
-        "width": 960,
-        "height": 700,
-        "minWidth": 960,
-        "minHeight": 600
+        "width": 1024,
+        "height": 768,
+        "minWidth": 1024,
+        "minHeight": 768
       }
     ],
     "security": {
