@@ -1,6 +1,6 @@
 #![cfg_attr(all(not(debug_assertions), target_os = "windows"), windows_subsystem = "windows")]
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
-use chrono::{ DateTime, Local, NaiveDate, TimeZone };
+use chrono::{Duration, DateTime, Local, NaiveDate, TimeZone };
 use lazy_static::lazy_static;
 use std::collections::HashMap;
 use std::fs::{ self, OpenOptions };
@@ -17,12 +17,19 @@ use tauri::{
 };
 use ring::aead::{ Aad, LessSafeKey, Nonce, UnboundKey, AES_256_GCM };
 use ring::error::Unspecified;
+use serde::Deserialize; // For deserializing query parameters
+use std::net::SocketAddr;
 use ring::rand::{ SecureRandom, SystemRandom };
 
-use axum::{Router, routing::get};
+use axum::{
+    extract::Query, // To extract query parameters
+    http::StatusCode, // To return HTTP status codes
+    response::{IntoResponse, Json}, // To return JSON responses
+    routing::get,
+    Router
+};
 use axum::serve;
 use tokio::net::TcpListener;
-use std::net::SocketAddr;
 
 #[cfg(target_os = "windows")]
 use std::ptr;
@@ -93,6 +100,15 @@ lazy_static! {
     static ref LAST_TRACKED_INACTIVE_TIME: Mutex<u64> = Mutex::new(0);
     static ref LAST_TRACKED_ACTIVE_START_TIME: Mutex<u64> = Mutex::new(0);
     static ref LAST_TRACKED_ACTIVE_END_TIME: Mutex<u64> = Mutex::new(0);
+}
+
+// Define a struct to hold the query parameters
+#[derive(Deserialize, Debug)]
+struct DateRangeQuery {
+    #[serde(rename = "startDate")] // Match query param naming
+    start_date: String,
+    #[serde(rename = "endDate")] // Match query param naming
+    end_date: String,
 }
 
 const KEY: [u8; 32] = [0x42; 32]; // Replace with a securely generated key
@@ -237,6 +253,80 @@ fn activity_handler() {
     let current_time = get_current_time();
     let _ = EVENT_QUEUE_SENDER.lock().unwrap().send(current_time);
 }
+
+
+// The main handler function for the /aggregate route
+async fn aggregate_handler(
+    Query(params): Query<DateRangeQuery>,
+) -> Result<Json<Vec<String>>, AppError> {
+    println!("Received aggregate request: {:?}", params);
+
+    // 1. Parse dates
+    let start_date = NaiveDate::parse_from_str(&params.start_date, "%Y-%m-%d") // <-- ADD & HERE
+        .map_err(|e| {
+            eprintln!("Failed to parse start date '{}': {}", params.start_date, e);
+            AppError::BadRequest("Invalid startDate format. Use YYYY-MM-DD.".to_string())
+        })?;
+
+    let end_date = NaiveDate::parse_from_str(&params.end_date, "%Y-%m-%d") // <-- ADD & HERE
+        .map_err(|e| {
+            eprintln!("Failed to parse end date '{}': {}", params.end_date, e);
+            AppError::BadRequest("Invalid endDate format. Use YYYY-MM-DD.".to_string())
+        })?;
+
+    if start_date > end_date {
+         return Err(AppError::BadRequest("startDate cannot be after endDate.".to_string()));
+    }
+
+    // 2. Generate list of dates in the range (inclusive)
+    let mut dates_to_process = Vec::new();
+    let mut current_date = start_date;
+    while current_date <= end_date {
+        dates_to_process.push(current_date);
+        // Handle potential date overflow, though unlikely for reasonable ranges
+        match current_date.checked_add_signed(Duration::days(1)) {
+             Some(next_date) => current_date = next_date,
+             None => {
+                eprintln!("Date range too large, overflowed.");
+                return Err(AppError::InternalServerError("Date range caused an overflow.".to_string()));
+             }
+        }
+    }
+
+    // 3. Format filenames and call the aggregation logic
+    let filenames: Vec<String> = dates_to_process
+        .into_iter()
+        .map(|date| format!("{}", date.format("%Y-%m-%d")))
+        .collect();
+
+    // Call your existing function. It already handles errors internally
+    // by returning strings with error messages.
+    let results = aggregate_week_activity_logs(filenames);
+
+    // Return results as JSON
+    Ok(Json(results))
+}
+
+// Custom error type for the Axum handler
+enum AppError {
+    BadRequest(String),
+    InternalServerError(String),
+    // Add other error types as needed
+}
+
+// Implement IntoResponse for AppError to convert errors into HTTP responses
+impl IntoResponse for AppError {
+    fn into_response(self) -> axum::response::Response {
+        let (status, error_message) = match self {
+            AppError::BadRequest(msg) => (StatusCode::BAD_REQUEST, msg),
+            AppError::InternalServerError(msg) => (StatusCode::INTERNAL_SERVER_ERROR, msg),
+        };
+
+        let body = Json(serde_json::json!({ "error": error_message }));
+        (status, body).into_response()
+    }
+}
+
 fn main() {
     let mut builder = tauri::Builder::default();
 
@@ -266,7 +356,9 @@ fn main() {
             }
 
             // --- CHANGE HERE ---
-            let app = Router::<()>::new().route("/", get(handler));
+            let app = Router::new()
+            .route("/", get(|| async { "Server is running" })) // Keep the root handler
+            .route("/aggregate", get(aggregate_handler)); // Add the new route
             // --- END CHANGE ---
 
             let addr = SocketAddr::from(([0, 0, 0, 0], 7930));
