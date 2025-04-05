@@ -1,3 +1,6 @@
+//Example Request
+//http://192.168.9.111:7930/aggregate?startDate=2025-04-01&endDate=2025-04-04
+
 #![cfg_attr(all(not(debug_assertions), target_os = "windows"), windows_subsystem = "windows")]
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 use chrono::{Duration, DateTime, Local, NaiveDate, TimeZone };
