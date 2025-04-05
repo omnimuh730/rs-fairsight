@@ -37,12 +37,9 @@ use tokio::net::TcpListener;
 // Add these imports at the top, specifically for macOS
 #[cfg(target_os = "macos")]
 use cocoa::{
-    base::{id, nil, YES}, // Import id and YES
+    base::YES, // Import id and YES
     appkit::{NSApp, NSApplication, NSApplicationActivationPolicy}, // Import NSApp for easier access
 };
-#[cfg(target_os = "macos")]
-use objc::{msg_send, sel, sel_impl};
-
 #[cfg(target_os = "windows")]
 use std::ptr;
 
@@ -383,7 +380,7 @@ fn main() {
         let rt = tokio::runtime::Runtime::new().unwrap();
         rt.block_on(async {
 
-            async fn handler() -> &'static str {
+            async fn _handler() -> &'static str {
                 "Server is running"
             }
 
@@ -423,23 +420,62 @@ fn main() {
 
             set_app_handle(app.handle());
             app.autolaunch().enable().expect("Failed to enable autostart");
-
+/*
             let quit = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
             let hide = MenuItem::with_id(app, "hide", "Hide", true, None::<&str>)?;
             let show = MenuItem::with_id(app, "show", "Show", true, None::<&str>)?;
 
             let menu = MenuBuilder::new(app).item(&show).item(&hide).item(&quit).build()?;
+*/
+//            let menu = MenuBuilder::new(app.handle()).item(&show).item(&hide).item(&quit).build()?;
+
+
+
+            let quit = MenuItem::with_id(app.handle(), "quit", "Quit", true, None::<&str>)?;
+            let hide = MenuItem::with_id(app.handle(), "hide", "Hide Window", true, None::<&str>)?; // Changed label slightly
+            let show = MenuItem::with_id(app.handle(), "show", "Show Window", true, None::<&str>)?; // Changed label slightly
+
+            let menu = MenuBuilder::new(app.handle()).item(&show).item(&hide).item(&quit).build()?;
+
 
             let _tray = TrayIconBuilder::with_id("main_tray")
-                .icon(include_image!("icons/icon.png"))
+                .icon(include_image!("icons/icon.png")) // Ensure path is correct
+                .tooltip("Your App Name") // Added tooltip
                 .menu(&menu)
-                .on_tray_icon_event(|_tray, event| {
+                .on_tray_icon_event(|tray, event| { // Pass tray context
                     if let TrayIconEvent::Click { button, .. } = event {
                         if button == tauri::tray::MouseButton::Left {
+                             // --- Implement Left Click Toggle ---
+                            let app_handle = tray.app_handle(); // Get handle from tray context
+                             if let Some(window) = app_handle.get_webview_window("main") {
+                                 match window.is_visible() {
+                                     Ok(true) => {
+                                         window.hide().unwrap();
+                                         #[cfg(target_os = "macos")]
+                                         {
+                                             set_activation_policy(NSApplicationActivationPolicy::NSApplicationActivationPolicyAccessory);
+                                         }
+                                     }
+                                     Ok(false) => {
+                                         #[cfg(target_os = "macos")]
+                                         {
+                                             set_activation_policy(NSApplicationActivationPolicy::NSApplicationActivationPolicyRegular);
+                                             // Activate *before* showing
+                                             activate_app();
+                                         }
+                                         window.show().unwrap();
+                                         window.set_focus().unwrap();
+                                     }
+                                     Err(e) => {
+                                        eprintln!("Error checking window visibility: {}", e);
+                                     }
+                                 }
+                             }
+                             // --- End Left Click Toggle ---
                         }
                     }
                 })
-                .on_menu_event(|app, event| {
+                .on_menu_event(|app, event| { // Pass app handle context
                     match event.id().as_ref() {
                         "quit" => {
                             std::process::exit(0);
@@ -447,10 +483,24 @@ fn main() {
                         "hide" => {
                             if let Some(window) = app.get_webview_window("main") {
                                 window.hide().unwrap();
+                                // --- Add macOS Hide Logic ---
+                                #[cfg(target_os = "macos")]
+                                {
+                                    set_activation_policy(NSApplicationActivationPolicy::NSApplicationActivationPolicyAccessory);
+                                }
+                                // --- End macOS Hide Logic ---
                             }
                         }
                         "show" => {
                             if let Some(window) = app.get_webview_window("main") {
+                                // --- Add macOS Show Logic ---
+                                #[cfg(target_os = "macos")]
+                                {
+                                    set_activation_policy(NSApplicationActivationPolicy::NSApplicationActivationPolicyRegular);
+                                    // Activate *before* showing
+                                    activate_app();
+                                }
+                                // --- End macOS Show Logic ---
                                 window.show().unwrap();
                                 window.set_focus().unwrap();
                             }
@@ -458,17 +508,57 @@ fn main() {
                         _ => {}
                     }
                 })
-                .build(app)?;
+                .build(app.handle())?; // Pass app handle to build
             Ok(())
-        })
-        .on_window_event(|app, event| {
+        }).on_window_event(|app, event| { // Pass app handle context
             match event {
                 WindowEvent::CloseRequested { api, .. } => {
+                     // REMOVE THIS LINE: let window_label = event.window_label();
+
+                     // Assuming 'main' is your primary window still
+                     // This is the correct way to get the window you want to hide:
                     if let Some(window) = app.get_webview_window("main") {
-                        window.hide().unwrap();
-                        api.prevent_close();
+                        // Check if the event is actually for the window we care about
+                        // (Optional but good practice if you ever add more windows)
+                        // In Tauri v2, the handler is typically registered per-window,
+                        // so this check might be redundant, but it doesn't hurt.
+                        // For a single window app, just proceeding is fine.
+
+                        println!("Close requested for main window, hiding."); // Added log
+                        window.hide().unwrap_or_else(|e| eprintln!("Error hiding window: {}", e)); // Added error handling
+
+                        // --- Add macOS Close Logic ---
+                        #[cfg(target_os = "macos")]
+                        {
+                            println!("Setting activation policy to Accessory"); // Added log
+                            set_activation_policy(NSApplicationActivationPolicy::NSApplicationActivationPolicyAccessory);
+                        }
+                        // --- End macOS Close Logic ---
+
+                        api.prevent_close(); // Prevent app termination
+                    } else {
+                         eprintln!("Close Requested, but 'main' window not found."); // Added log
                     }
                 }
+                // Handle other window events if needed
+                 WindowEvent::Focused(focused) => {
+                    // Optional: If the window regains focus some other way,
+                    // ensure the Dock icon comes back on macOS.
+                    if *focused {
+                         if let Some(window) = app.get_webview_window("main") {
+                            // Maybe only do this if the window is visible?
+                            if window.is_visible().unwrap_or(false) {
+                                #[cfg(target_os = "macos")]
+                                {
+                                     // Ensure policy is Regular when focused and visible
+                                    println!("Window focused, ensuring Regular activation policy."); // Added log
+                                     set_activation_policy(NSApplicationActivationPolicy::NSApplicationActivationPolicyRegular);
+                                     // We might not need activate_app() here if it's already focused.
+                                }
+                            }
+                         }
+                    }
+                 }
                 _ => {}
             }
         })
