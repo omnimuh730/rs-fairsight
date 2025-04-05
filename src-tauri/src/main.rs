@@ -18,6 +18,12 @@ use tauri::{
 use ring::aead::{ Aad, LessSafeKey, Nonce, UnboundKey, AES_256_GCM };
 use ring::error::Unspecified;
 use ring::rand::{ SecureRandom, SystemRandom };
+
+use axum::{Router, routing::get};
+use axum::serve;
+use tokio::net::TcpListener;
+use std::net::SocketAddr;
+
 #[cfg(target_os = "windows")]
 use std::ptr;
 
@@ -249,6 +255,37 @@ fn main() {
 
     // Set up hooks in a background thread
     setup_hooks();
+
+    // Start web server in background
+    std::thread::spawn(|| {
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        rt.block_on(async {
+
+            async fn handler() -> &'static str {
+                "Server is running"
+            }
+
+            // --- CHANGE HERE ---
+            let app = Router::<()>::new().route("/", get(handler));
+            // --- END CHANGE ---
+
+            let addr = SocketAddr::from(([0, 0, 0, 0], 7930));
+            println!("Listening on {}", addr);
+
+            let listener = match TcpListener::bind(addr).await {
+                Ok(listener) => listener,
+                Err(e) => {
+                    eprintln!("Failed to bind server address {}: {}", addr, e);
+                    return;
+                }
+            };
+
+            if let Err(e) = serve(listener, app.into_make_service()).await {
+                 eprintln!("Server error: {}", e);
+            }
+        });
+    });
+
 
     builder
         .plugin(
