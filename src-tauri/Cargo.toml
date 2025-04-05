@@ -17,6 +17,8 @@ tauri-plugin-autostart = "2.2.0"
 [target.'cfg(target_os = "macos")'.dependencies]
 core-graphics = "0.24.0"
 core-foundation = "0.10.0"
+cocoa = "0.26" # Use the latest compatible version
+objc = "0.2"   # Use the latest compatible version
 foreign-types-shared = "0.3"  # Likely only needed with core-foundation/core-graphics
 dirs = "5.0"
 

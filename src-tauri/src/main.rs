@@ -34,6 +34,15 @@ use axum::{
 use axum::serve;
 use tokio::net::TcpListener;
 
+// Add these imports at the top, specifically for macOS
+#[cfg(target_os = "macos")]
+use cocoa::{
+    base::{id, nil, YES}, // Import id and YES
+    appkit::{NSApp, NSApplication, NSApplicationActivationPolicy}, // Import NSApp for easier access
+};
+#[cfg(target_os = "macos")]
+use objc::{msg_send, sel, sel_impl};
+
 #[cfg(target_os = "windows")]
 use std::ptr;
 
@@ -327,6 +336,26 @@ impl IntoResponse for AppError {
 
         let body = Json(serde_json::json!({ "error": error_message }));
         (status, body).into_response()
+    }
+}
+
+// --- macOS: Function to set activation policy ---
+#[cfg(target_os = "macos")]
+fn set_activation_policy(policy: NSApplicationActivationPolicy) {
+    unsafe {
+        let ns_app = NSApp(); // Convenience function for sharedApplication
+        // Use the direct method call from the cocoa crate
+        ns_app.setActivationPolicy_(policy);
+    }
+}
+
+// --- macOS: Function to activate the app ---
+#[cfg(target_os = "macos")]
+fn activate_app() {
+    unsafe {
+        let ns_app = NSApp();
+        // Use the direct method call from the cocoa crate
+        ns_app.activateIgnoringOtherApps_(YES);
     }
 }
 
