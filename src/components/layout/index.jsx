@@ -20,7 +20,7 @@ import {
 
 import ShowTodayCard from '../ShowTodayPage/ShowToday';
 import WeeklyActivityPage from '../WeeklyActivityPage';
-import AnalyticsPage from '../AnalyticsPage';
+import ChangeLogsPage from '../ChangeLogsPage';
 import FeedbackPage from '../FeedbackPage';
 
 const drawerWidth = 240;
@@ -29,7 +29,7 @@ const drawerWidth = 240;
 const listItems = [
   { text: `Today's work`, icon: <Timer />, path: '/inbox' },
   { text: 'Weekly Activity', icon: <Timeline />, path: '/starred' },
-  { text: 'Analytics', icon: <AutoGraph />, path: '/sent' },
+  { text: 'Changelogs', icon: <AutoGraph />, path: '/sent' },
   { text: 'Feedback', icon: <Feedback />, path: '/drafts' },
 ];
 
@@ -93,7 +93,7 @@ function ResponsiveDrawer(props) {
             <Menu/>
           </IconButton>
           <Typography variant="h6" noWrap component="div">
-            Project Fairsight - o1
+            Project Fairsight - o1(beta)
           </Typography>
         </Toolbar>
       </AppBar>
@@ -140,7 +140,7 @@ function ResponsiveDrawer(props) {
         <Routes>
           <Route path="/inbox" element={<ShowTodayCard />} />
           <Route path="/starred" element={<WeeklyActivityPage />} />
-          <Route path="/sent" element={<AnalyticsPage />} />
+          <Route path="/sent" element={<ChangeLogsPage />} />
           <Route path="/drafts" element={<FeedbackPage />} />
           <Route path="*" element={<Navigate to="/inbox" />} /> {/* Default route */}
         </Routes>
