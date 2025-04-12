@@ -33,6 +33,7 @@ use axum::{
 };
 use axum::serve;
 use tokio::net::TcpListener;
+use tower_http::cors::{Any, CorsLayer};
 
 // Add these imports at the top, specifically for macOS
 #[cfg(target_os = "macos")]
@@ -268,20 +269,23 @@ fn activity_handler() {
 async fn aggregate_handler(
     Query(params): Query<DateRangeQuery>,
 ) -> Result<Json<Vec<String>>, AppError> {
-    println!("Received aggregate request: {:?}", params);
+    println!("Received aggregate request with params: {:?}", params);
+    println!("Processing request for date range: {} to {}", params.start_date, params.end_date);
 
     // 1. Parse dates
-    let start_date = NaiveDate::parse_from_str(&params.start_date, "%Y-%m-%d") // <-- ADD & HERE
+    let start_date = NaiveDate::parse_from_str(&params.start_date, "%Y-%m-%d")
         .map_err(|e| {
             eprintln!("Failed to parse start date '{}': {}", params.start_date, e);
             AppError::BadRequest("Invalid startDate format. Use YYYY-MM-DD.".to_string())
         })?;
 
-    let end_date = NaiveDate::parse_from_str(&params.end_date, "%Y-%m-%d") // <-- ADD & HERE
+    let end_date = NaiveDate::parse_from_str(&params.end_date, "%Y-%m-%d")
         .map_err(|e| {
             eprintln!("Failed to parse end date '{}': {}", params.end_date, e);
             AppError::BadRequest("Invalid endDate format. Use YYYY-MM-DD.".to_string())
         })?;
+
+    println!("Successfully parsed dates: {} to {}", start_date, end_date);
 
     if start_date > end_date {
          return Err(AppError::BadRequest("startDate cannot be after endDate.".to_string()));
@@ -385,22 +389,32 @@ fn main() {
             }
 
             // --- CHANGE HERE ---
+            let cors = CorsLayer::new()
+                .allow_origin(Any)
+                .allow_methods(Any)
+                .allow_headers(Any);
+
             let app = Router::new()
-            .route("/", get(|| async { "Server is running" })) // Keep the root handler
-            .route("/aggregate", get(aggregate_handler)); // Add the new route
+                .route("/", get(|| async { "Server is running" })) // Keep the root handler
+                .route("/aggregate", get(aggregate_handler)) // Add the new route
+                .layer(cors); // Add CORS middleware
             // --- END CHANGE ---
 
             let addr = SocketAddr::from(([0, 0, 0, 0], 7930));
-            println!("Listening on {}", addr);
+            println!("Starting server on {}", addr);
 
             let listener = match TcpListener::bind(addr).await {
-                Ok(listener) => listener,
+                Ok(listener) => {
+                    println!("Successfully bound to address {}", addr);
+                    listener
+                },
                 Err(e) => {
                     eprintln!("Failed to bind server address {}: {}", addr, e);
                     return;
                 }
             };
 
+            println!("Server is now listening for connections...");
             if let Err(e) = serve(listener, app.into_make_service()).await {
                  eprintln!("Server error: {}", e);
             }
