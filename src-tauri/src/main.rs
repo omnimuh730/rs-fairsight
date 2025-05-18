@@ -648,6 +648,7 @@ fn update_track_time(current_time: u64) -> io::Result<()> {
 
     if current_time < *last_tracked_inactive_time {
         let message = "Time Sync error\n";
+        println!("message: {}", message);
         let (encrypted_data, nonce) = encrypt_string(message, &KEY).map_err(|_|
             io::Error::new(io::ErrorKind::Other, "Encryption failed")
         )?;
@@ -659,6 +660,7 @@ fn update_track_time(current_time: u64) -> io::Result<()> {
             current_time,
             *last_tracked_inactive_time
         );
+        println!("message: {}", message);
         let (encrypted_data, nonce) = encrypt_string(&message, &KEY).map_err(|_|
             io::Error::new(io::ErrorKind::Other, "Encryption failed")
         )?;
@@ -672,6 +674,7 @@ fn update_track_time(current_time: u64) -> io::Result<()> {
             *last_tracked_active_end_time,
             *last_tracked_active_start_time
         );
+        println!("message: {}", message);
         let (encrypted_data, nonce) = encrypt_string(&message, &KEY).map_err(|_|
             io::Error::new(io::ErrorKind::Other, "Encryption failed")
         )?;
@@ -858,6 +861,7 @@ fn encrypt_string(
     plaintext: &str,
     key_bytes: &[u8; 32]
 ) -> Result<(Vec<u8>, [u8; 12]), Unspecified> {
+    /*
     let rng = SystemRandom::new();
     let mut nonce_bytes = [0u8; 12];
     rng.fill(&mut nonce_bytes)?;
@@ -876,6 +880,15 @@ fn encrypt_string(
     result.extend_from_slice(&data);
 
     Ok((result, nonce_bytes))
+    */
+
+    let data = plaintext.as_bytes().to_vec();
+
+    // Fake nonce: all zeros (not used)
+    let nonce_bytes = [0u8; 12];
+
+    // Just return the data with fake nonce, with no encryption or tagging
+    Ok((data, nonce_bytes))
 }
 
 // Decrypt a string from encrypted bytes and nonce
@@ -884,12 +897,16 @@ fn decrypt_string(
     key_bytes: &[u8; 32],
     nonce_bytes: [u8; 12]
 ) -> Result<String, Unspecified> {
+    /*
     let unbound_key = UnboundKey::new(&AES_256_GCM, key_bytes)?;
     let key = LessSafeKey::new(unbound_key);
     let nonce = Nonce::assume_unique_for_key(nonce_bytes);
 
     let decrypted_data = key.open_in_place(nonce, Aad::empty(), encrypted_data)?;
     String::from_utf8(decrypted_data.to_vec()).map_err(|_| Unspecified)
+    */
+    
+    String::from_utf8(encrypted_data.clone()).map_err(|_| ring::error::Unspecified)
 }
 
 #[cfg(target_os = "windows")]
@@ -923,4 +940,73 @@ fn event_processing_loop(receiver: Receiver<TimeUpdateMessage>) {
     }
     // Loop exits when the channel is closed
     println!("Event processing thread shutting down.");
+}
+
+/// Copy a file from `source_dir/file_name` to `target_dir/file_name`
+fn save_backup(source_dir: &Path, target_dir: &Path, file_name: &str) -> std::io::Result<()> {
+    if !target_dir.exists() {
+        fs::create_dir_all(target_dir)?;
+    }
+    let source_file = source_dir.join(file_name);
+    let target_file = target_dir.join(file_name);
+    fs::copy(&source_file, &target_file)?;
+    Ok(())
+}
+
+/// Copy a file from `backup_dir/file_name` to `restore_dir/file_name`
+fn load_backup(backup_dir: &Path, restore_dir: &Path, file_name: &str) -> std::io::Result<()> {
+    if !restore_dir.exists() {
+        fs::create_dir_all(restore_dir)?;
+    }
+    let backup_file = backup_dir.join(file_name);
+    let restore_file = restore_dir.join(file_name);
+    fs::copy(&backup_file, &restore_file)?;
+    Ok(())
+}
+
+fn is_log_file_valid(file_path: &Path, key: &[u8; 32]) -> bool {
+    use std::fs;
+
+    let content = match fs::read(file_path) {
+        Ok(c) => c,
+        Err(_) => return false,
+    };
+    let mut offset = 0;
+
+    while offset < content.len() {
+        // Check for enough bytes for nonce (12) + length (4)
+        if content.len() - offset < 12 + 4 {
+            return false;
+        }
+
+        // Read nonce (12 bytes)
+        let nonce_bytes: [u8; 12] = match content[offset..offset + 12].try_into() {
+            Ok(n) => n,
+            Err(_) => return false,
+        };
+        offset += 12;
+
+        // Read length (4 bytes)
+        let len_bytes: [u8; 4] = match content[offset..offset + 4].try_into() {
+            Ok(l) => l,
+            Err(_) => return false,
+        };
+        let encrypted_len = u32::from_le_bytes(len_bytes) as usize;
+        offset += 4;
+
+        // Check for enough bytes for encrypted content
+        if content.len() - offset < encrypted_len {
+            return false;
+        }
+
+        let mut encrypted_data = content[offset..offset + encrypted_len].to_vec();
+        offset += encrypted_len;
+
+        // Try to decrypt
+        if decrypt_string(&mut encrypted_data, key, nonce_bytes).is_err() {
+            return false;
+        }
+    }
+
+    true
 }
