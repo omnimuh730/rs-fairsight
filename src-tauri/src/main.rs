@@ -299,7 +299,7 @@ async fn aggregate_handler(
         // Handle potential date overflow, though unlikely for reasonable ranges
         match current_date.checked_add_signed(Duration::days(1)) {
              Some(next_date) => current_date = next_date,
-             None => {
+             none => {
                 eprintln!("Date range too large, overflowed.");
                 return Err(AppError::InternalServerError("Date range caused an overflow.".to_string()));
              }
