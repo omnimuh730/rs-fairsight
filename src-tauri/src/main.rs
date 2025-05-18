@@ -376,6 +376,21 @@ fn main() {
     *LAST_TRACKED_ACTIVE_START_TIME.lock().unwrap() = get_current_time();
     *LAST_TRACKED_ACTIVE_END_TIME.lock().unwrap() = get_current_time();
 
+    
+    #[cfg(target_os = "windows")]
+    {
+        let log_dir = Path::new("C:\\fairsight-log");
+        let backup_dir = Path::new("C:\\fairsight-backup");
+        let current_date = Local::now().format("%Y-%m-%d").to_string();
+        let file_name = format!("rs-fairsight({}).txt", current_date);
+        let log_file_path = log_dir.join(&file_name);
+
+        // If log file exists and is invalid, recover from backup
+        if log_file_path.exists() && !is_log_file_valid(&log_file_path, &KEY) {
+            let _ = load_backup(backup_dir, log_dir, &file_name);
+        }
+    }
+
     // Set up hooks in a background thread
     setup_hooks();
 
@@ -616,6 +631,10 @@ unsafe extern "system" fn mouse_hook_callback(code: i32, w_param: usize, l_param
     unsafe { CallNextHookEx(ptr::null_mut(), code, w_param, l_param) }
 }
 
+use std::sync::atomic::{AtomicUsize, Ordering};
+
+static BACKUP_COUNTER: AtomicUsize = AtomicUsize::new(0);
+
 fn update_track_time(current_time: u64) -> io::Result<()> {
     let mut last_tracked_inactive_time = LAST_TRACKED_INACTIVE_TIME.lock().unwrap();
     let mut last_tracked_active_start_time = LAST_TRACKED_ACTIVE_START_TIME.lock().unwrap();
@@ -682,9 +701,24 @@ fn update_track_time(current_time: u64) -> io::Result<()> {
         file.write_all(&encrypted_data)?;
     }
 
+    // After writing to the log file (at the end of the function):
+    let count = BACKUP_COUNTER.fetch_add(1, Ordering::SeqCst) + 1;
+    if count % 50 == 0 {
+        #[cfg(target_os = "windows")]
+        {
+            let log_dir = Path::new("C:\\fairsight-log");
+            let backup_dir = Path::new("C:\\fairsight-backup");
+            let current_date = Local::now().format("%Y-%m-%d").to_string();
+            let file_name = format!("rs-fairsight({}).txt", current_date);
+            let _ = save_backup(log_dir, backup_dir, &file_name);
+        }
+        // Add macOS logic if needed
+    }
+
     *last_tracked_inactive_time = current_time;
     Ok(())
 }
+
 
 fn aggregate_log_results(file_name: &str) -> Result<String, Box<dyn std::error::Error>> {
     let log_dir;
@@ -861,7 +895,7 @@ fn encrypt_string(
     plaintext: &str,
     key_bytes: &[u8; 32]
 ) -> Result<(Vec<u8>, [u8; 12]), Unspecified> {
-    /*
+    
     let rng = SystemRandom::new();
     let mut nonce_bytes = [0u8; 12];
     rng.fill(&mut nonce_bytes)?;
@@ -880,8 +914,8 @@ fn encrypt_string(
     result.extend_from_slice(&data);
 
     Ok((result, nonce_bytes))
-    */
-
+    
+/*
     let data = plaintext.as_bytes().to_vec();
 
     // Fake nonce: all zeros (not used)
@@ -889,6 +923,7 @@ fn encrypt_string(
 
     // Just return the data with fake nonce, with no encryption or tagging
     Ok((data, nonce_bytes))
+    */
 }
 
 // Decrypt a string from encrypted bytes and nonce
@@ -897,16 +932,16 @@ fn decrypt_string(
     key_bytes: &[u8; 32],
     nonce_bytes: [u8; 12]
 ) -> Result<String, Unspecified> {
-    /*
+    
     let unbound_key = UnboundKey::new(&AES_256_GCM, key_bytes)?;
     let key = LessSafeKey::new(unbound_key);
     let nonce = Nonce::assume_unique_for_key(nonce_bytes);
 
     let decrypted_data = key.open_in_place(nonce, Aad::empty(), encrypted_data)?;
     String::from_utf8(decrypted_data.to_vec()).map_err(|_| Unspecified)
-    */
     
-    String::from_utf8(encrypted_data.clone()).map_err(|_| ring::error::Unspecified)
+    
+//    String::from_utf8(encrypted_data.clone()).map_err(|_| ring::error::Unspecified)
 }
 
 #[cfg(target_os = "windows")]
