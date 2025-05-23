@@ -299,7 +299,7 @@ async fn aggregate_handler(
         // Handle potential date overflow, though unlikely for reasonable ranges
         match current_date.checked_add_signed(Duration::days(1)) {
              Some(next_date) => current_date = next_date,
-             none => {
+             _ => {
                 eprintln!("Date range too large, overflowed.");
                 return Err(AppError::InternalServerError("Date range caused an overflow.".to_string()));
              }
@@ -388,6 +388,22 @@ fn main() {
         // If log file exists and is invalid, recover from backup
         if log_file_path.exists() && !is_log_file_valid(&log_file_path, &KEY) {
             let _ = load_backup(backup_dir, log_dir, &file_name);
+            println!("Saved to backup at startup");
+        } else {
+            println!("File invalid or not found at main function");
+        }
+    }
+    #[cfg(target_os = "macos")]
+    {
+        let home_dir = dirs::home_dir().expect("Could not find home directory");
+        let log_dir = home_dir.join("Documents").join("rs-fairsight");
+        let backup_dir = home_dir.join("Documents").join("rs-fairsight-backup");
+        let current_date = Local::now().format("%Y-%m-%d").to_string();
+        let file_name = format!("rs-fairsight({}).txt", current_date);
+        let log_file_path = log_dir.join(&file_name);
+
+        if log_file_path.exists() && !is_log_file_valid(&log_file_path, &KEY) {
+            let _ = load_backup(&backup_dir, &log_dir, &file_name);
         }
     }
 
@@ -713,6 +729,15 @@ fn update_track_time(current_time: u64) -> io::Result<()> {
             let _ = save_backup(log_dir, backup_dir, &file_name);
         }
         // Add macOS logic if needed
+        #[cfg(target_os = "macos")]
+        {
+            let home_dir = dirs::home_dir().ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "Could not find home directory"))?;
+            let log_dir = home_dir.join("Documents").join("rs-fairsight");
+            let backup_dir = home_dir.join("Documents").join("rs-fairsight-backup");
+            let current_date = Local::now().format("%Y-%m-%d").to_string();
+            let file_name = format!("rs-fairsight({}).txt", current_date);
+            let _ = save_backup(&log_dir, &backup_dir, &file_name);
+        }
     }
 
     *last_tracked_inactive_time = current_time;
