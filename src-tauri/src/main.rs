@@ -22,6 +22,7 @@ use ring::aead::{ Aad, LessSafeKey, Nonce, UnboundKey, AES_256_GCM };
 use ring::error::Unspecified;
 use serde::Deserialize; // For deserializing query parameters
 use std::net::SocketAddr;
+use std::path::Path;
 use ring::rand::{ SecureRandom, SystemRandom };
 
 use axum::{
@@ -88,7 +89,7 @@ use tauri_plugin_autostart::{ MacosLauncher, ManagerExt };
 use tauri::Emitter;
 use once_cell::sync::Lazy;
 
-static INACTIVE_TIME_PERIOD: u64 = 30;
+static INACTIVE_TIME_PERIOD: u64 = 300;
 
 static APP_HANDLE: Lazy<Mutex<Option<AppHandle>>> = Lazy::new(|| Mutex::new(None));
 
