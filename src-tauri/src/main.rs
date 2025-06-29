@@ -46,9 +46,6 @@ use cocoa::{
 use std::ptr;
 
 #[cfg(target_os = "windows")]
-use std::path::Path;
-
-#[cfg(target_os = "windows")]
 use std::thread;
 
 #[cfg(target_os = "windows")]
