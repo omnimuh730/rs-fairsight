@@ -1,31 +1,60 @@
-import React from 'react';
 import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { PieChart } from '@mui/x-charts/PieChart';
 import { Button, Card, CardContent, Typography, Box } from "@mui/material";
 import { ACTIVE_COLOR, INACTIVE_COLOR, NOTRUN_COLOR } from '../../utils/colorSetting';
+import AnimatedContainer from '../shared/AnimatedContainer';
+import { useAnimations } from '../../utils/fantasyAnimations';
+import FantasyCard from '../shared/FantasyCard';
 
 const ColorBar = ({ percentages, colors }) => {
     const total = percentages.reduce((sum, percent) => sum + percent, 0);
 
     return (
-        <Box sx={{ display: 'flex', width: '100%', height: '20px', borderRadius: '10px', overflow: 'hidden', boxShadow: '0 2px 5px rgba(0,0,0,0.1)' }}>
-            {percentages.map((percent, index) => {
-                const width = (percent / total) * 100;
-                return (
-                    <Box
-                        key={index}
-                        sx={{
-                            width: `${width}%`,
-                            backgroundColor: colors[index],
-                            transition: 'width 0.3s ease-in-out',
-                        }}
-                    />
-                );
-            })}
-        </Box>
+        <AnimatedContainer animation="slideInLeft" delay={0.3}>
+            <Box sx={{ 
+                display: 'flex', 
+                width: '100%', 
+                height: '24px', 
+                borderRadius: '12px', 
+                overflow: 'hidden', 
+                boxShadow: '0 4px 15px rgba(0,0,0,0.2)',
+                position: 'relative',
+                '&::before': {
+                    content: '""',
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent)',
+                    animation: 'shimmer 2s infinite',
+                    zIndex: 1,
+                }
+            }}>
+                {percentages.map((percent, index) => {
+                    const width = (percent / total) * 100;
+                    return (
+                        <Box
+                            key={index}
+                            sx={{
+                                width: `${width}%`,
+                                backgroundColor: colors[index],
+                                transition: 'all 0.8s cubic-bezier(0.25, 0.8, 0.25, 1)',
+                                position: 'relative',
+                                '&:hover': {
+                                    filter: 'brightness(1.2)',
+                                    transform: 'scaleY(1.1)',
+                                }
+                            }}
+                        />
+                    );
+                })}
+            </Box>
+        </AnimatedContainer>
     );
 };
+
 
 const ShowTodayCard = () => {
     const [trackedColorSlot, setTrackedColorSlot] = useState([]);
