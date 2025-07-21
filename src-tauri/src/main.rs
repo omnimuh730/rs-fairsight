@@ -11,6 +11,7 @@ mod web_server;
 mod commands;
 mod app_state;
 mod ui_setup;
+mod health_monitor;
 #[cfg(target_os = "macos")]
 mod macos_utils;
 
@@ -24,8 +25,9 @@ use crate::file_utils::{is_log_file_valid, load_backup};
 use crate::hooks::setup_hooks;
 use crate::time_tracker::initialize_time_tracking;
 use crate::web_server::start_web_server;
-use crate::commands::{greet, sync_time_data, aggregate_week_activity_logs};
+use crate::commands::{greet, sync_time_data, aggregate_week_activity_logs, get_health_status};
 use crate::ui_setup::{setup_tray_and_window_events, handle_window_event};
+use crate::health_monitor::initialize_health_monitoring;
 
 #[cfg(target_os = "macos")]
 use dirs;
@@ -43,8 +45,11 @@ fn main() {
     
     // Initialize time tracking
     initialize_time_tracking();
+    
+    // Initialize health monitoring
+    initialize_health_monitoring();
 
-    // Initialize backup and validation
+    // Initialize backup and validation with better error handling
     #[cfg(target_os = "windows")]
     {
         let log_dir = Path::new("C:\\fairsight-log");
@@ -53,24 +58,51 @@ fn main() {
         let file_name = format!("rs-fairsight({}).txt", current_date);
         let log_file_path = log_dir.join(&file_name);
 
+        // Ensure directories exist
+        if let Err(e) = std::fs::create_dir_all(log_dir) {
+            eprintln!("Warning: Failed to create log directory: {}", e);
+        }
+        if let Err(e) = std::fs::create_dir_all(backup_dir) {
+            eprintln!("Warning: Failed to create backup directory: {}", e);
+        }
+
         if log_file_path.exists() && !is_log_file_valid(&log_file_path, &KEY) {
-            let _ = load_backup(backup_dir, log_dir, &file_name);
-            println!("Saved to backup at startup");
+            match load_backup(backup_dir, log_dir, &file_name) {
+                Ok(_) => println!("Successfully restored from backup at startup"),
+                Err(e) => eprintln!("Warning: Failed to restore from backup: {}", e),
+            }
         } else {
-            println!("File invalid or not found at main function");
+            println!("Log file is valid or doesn't exist at startup");
         }
     }
     #[cfg(target_os = "macos")]
     {
-        let home_dir = dirs::home_dir().expect("Could not find home directory");
+        let home_dir = match dirs::home_dir() {
+            Some(dir) => dir,
+            None => {
+                eprintln!("Error: Could not find home directory");
+                return;
+            }
+        };
         let log_dir = home_dir.join("Documents").join("rs-fairsight");
         let backup_dir = home_dir.join("Documents").join("rs-fairsight-backup");
         let current_date = Local::now().format("%Y-%m-%d").to_string();
         let file_name = format!("rs-fairsight({}).txt", current_date);
         let log_file_path = log_dir.join(&file_name);
 
+        // Ensure directories exist
+        if let Err(e) = std::fs::create_dir_all(&log_dir) {
+            eprintln!("Warning: Failed to create log directory: {}", e);
+        }
+        if let Err(e) = std::fs::create_dir_all(&backup_dir) {
+            eprintln!("Warning: Failed to create backup directory: {}", e);
+        }
+
         if log_file_path.exists() && !is_log_file_valid(&log_file_path, &KEY) {
-            let _ = load_backup(&backup_dir, &log_dir, &file_name);
+            match load_backup(&backup_dir, &log_dir, &file_name) {
+                Ok(_) => println!("Successfully restored from backup at startup"),
+                Err(e) => eprintln!("Warning: Failed to restore from backup: {}", e),
+            }
         }
     }
 
@@ -99,7 +131,7 @@ fn main() {
         })
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(
-            tauri::generate_handler![greet, sync_time_data, aggregate_week_activity_logs]
+            tauri::generate_handler![greet, sync_time_data, aggregate_week_activity_logs, get_health_status]
         )
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -8,6 +8,7 @@ pub mod web_server;
 pub mod commands;
 pub mod app_state;
 pub mod ui_setup;
+pub mod health_monitor;
 
 #[cfg(target_os = "macos")]
 pub mod macos_utils;

@@ -1,4 +1,5 @@
 use crate::time_tracker::aggregate_log_results;
+use crate::health_monitor::HEALTH_MONITOR;
 
 #[tauri::command]
 pub fn greet(name: &str) -> String {
@@ -25,4 +26,29 @@ pub fn aggregate_week_activity_logs(data_list: Vec<String>) -> Vec<String> {
     }
 
     logdb_list
+}
+
+#[tauri::command]
+pub fn get_health_status() -> String {
+    use std::time::{SystemTime, UNIX_EPOCH};
+    
+    let current_time = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs();
+        
+    let last_activity = HEALTH_MONITOR.get_last_activity_time();
+    
+    if last_activity == 0 {
+        "No activity tracked yet".to_string()
+    } else {
+        let seconds_since_activity = current_time - last_activity;
+        if seconds_since_activity < 60 {
+            "Time tracking is working normally".to_string()
+        } else if seconds_since_activity < 600 {
+            format!("Last activity {} seconds ago", seconds_since_activity)
+        } else {
+            format!("Warning: No activity for {} seconds", seconds_since_activity)
+        }
+    }
 }

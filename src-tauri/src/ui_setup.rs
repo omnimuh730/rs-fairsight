@@ -16,7 +16,14 @@ use crate::app_state::set_app_handle;
 
 pub fn setup_tray_and_window_events(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     set_app_handle(app.handle());
-    app.autolaunch().enable().expect("Failed to enable autostart");
+    
+    // Enable autostart with better error handling
+    if let Err(e) = app.autolaunch().enable() {
+        eprintln!("Warning: Failed to enable autostart: {}", e);
+        // Continue execution instead of panicking - autostart is not critical for core functionality
+    } else {
+        println!("Autostart enabled successfully");
+    }
 
     let quit = MenuItem::with_id(app.handle(), "quit", "Quit", true, None::<&str>)?;
     let hide = MenuItem::with_id(app.handle(), "hide", "Hide Window", true, None::<&str>)?;
