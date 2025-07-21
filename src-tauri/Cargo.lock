@@ -3198,7 +3198,7 @@ dependencies = [
 
 [[package]]
 name = "rs-fairsight"
-version = "0.2.5"
+version = "0.9.0"
 dependencies = [
  "axum",
  "chrono",
