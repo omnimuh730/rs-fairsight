@@ -118,14 +118,18 @@ fn update_track_time(current_time: u64) -> io::Result<()> {
     let filename = log_dir.join(format!("rs-fairsight({}).txt", current_date));
 
     let message = if current_time < *last_tracked_inactive_time {
-        "Time Sync error\n".to_string()
+        let msg = "Time Sync error\n".to_string();
+        crate::log_warning!("time_tracker", "Time sync error detected");
+        msg
     } else if current_time - *last_tracked_inactive_time > INACTIVE_TIME_PERIOD {
         *last_tracked_active_start_time = current_time;
-        format!(
+        let msg = format!(
             "Inactive time over 5seconds {} - {}\n",
             current_time,
             *last_tracked_inactive_time
-        )
+        );
+        crate::log_info!("time_tracker", "User became active after {} seconds of inactivity", current_time - *last_tracked_inactive_time);
+        msg
     } else if *last_tracked_active_end_time != current_time {
         *last_tracked_active_end_time = current_time;
         format!(
@@ -149,9 +153,9 @@ fn update_track_time(current_time: u64) -> io::Result<()> {
     if count % BACKUP_FREQUENCY == 0 {
         let file_name = format!("rs-fairsight({}).txt", current_date);
         if let Err(e) = save_backup(&log_dir, &backup_dir, &file_name) {
-            eprintln!("Backup failed: {}", e);
+            crate::log_error!("time_tracker", "Backup failed: {}", e);
         } else {
-            println!("Backup created successfully (operation #{})", count);
+            crate::log_info!("time_tracker", "Backup created successfully (operation #{})", count);
         }
     }
 
@@ -328,7 +332,7 @@ pub fn aggregate_log_results(file_name: &str) -> Result<String, Box<dyn std::err
 }
 
 fn event_processing_loop(receiver: Receiver<TimeUpdateMessage>) {
-    println!("Starting event processing thread...");
+    crate::log_info!("time_tracker", "Starting event processing thread...");
     let mut consecutive_errors = 0;
     const MAX_CONSECUTIVE_ERRORS: usize = 10;
     
@@ -339,10 +343,10 @@ fn event_processing_loop(receiver: Receiver<TimeUpdateMessage>) {
             }
             Err(e) => {
                 consecutive_errors += 1;
-                eprintln!("Error updating track time (error #{} consecutive): {}", consecutive_errors, e);
+                crate::log_error!("time_tracker", "Error updating track time (error #{} consecutive): {}", consecutive_errors, e);
                 
                 if consecutive_errors >= MAX_CONSECUTIVE_ERRORS {
-                    eprintln!("Too many consecutive errors ({}), sleeping for 30 seconds before continuing", MAX_CONSECUTIVE_ERRORS);
+                    crate::log_warning!("time_tracker", "Too many consecutive errors ({}), sleeping for 30 seconds before continuing", MAX_CONSECUTIVE_ERRORS);
                     std::thread::sleep(std::time::Duration::from_secs(30));
                     consecutive_errors = 0; // Reset after sleep
                 }
@@ -351,5 +355,5 @@ fn event_processing_loop(receiver: Receiver<TimeUpdateMessage>) {
             }
         }
     }
-    println!("Event processing thread shutting down.");
+    crate::log_warning!("time_tracker", "Event processing thread shutting down.");
 }

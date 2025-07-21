@@ -19,10 +19,10 @@ pub fn setup_tray_and_window_events(app: &mut tauri::App) -> Result<(), Box<dyn 
     
     // Enable autostart with better error handling
     if let Err(e) = app.autolaunch().enable() {
-        eprintln!("Warning: Failed to enable autostart: {}", e);
+        crate::log_warning!("ui_setup", "Failed to enable autostart: {}", e);
         // Continue execution instead of panicking - autostart is not critical for core functionality
     } else {
-        println!("Autostart enabled successfully");
+        crate::log_info!("ui_setup", "Autostart enabled successfully");
     }
 
     let quit = MenuItem::with_id(app.handle(), "quit", "Quit", true, None::<&str>)?;

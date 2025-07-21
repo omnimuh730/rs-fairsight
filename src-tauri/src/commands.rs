@@ -1,5 +1,6 @@
 use crate::time_tracker::aggregate_log_results;
 use crate::health_monitor::HEALTH_MONITOR;
+use crate::logger::{get_logs, get_recent_logs, clear_logs, LogEntry};
 
 #[tauri::command]
 pub fn greet(name: &str) -> String {
@@ -51,4 +52,20 @@ pub fn get_health_status() -> String {
             format!("Warning: No activity for {} seconds", seconds_since_activity)
         }
     }
+}
+
+#[tauri::command]
+pub fn get_all_logs() -> Vec<LogEntry> {
+    get_logs()
+}
+
+#[tauri::command]
+pub fn get_recent_logs_limited(count: usize) -> Vec<LogEntry> {
+    get_recent_logs(count)
+}
+
+#[tauri::command]
+pub fn clear_all_logs() -> String {
+    clear_logs();
+    "Logs cleared successfully".to_string()
 }

@@ -48,6 +48,7 @@ static EVENT_TAP_RUNNING: AtomicBool = AtomicBool::new(false);
 
 #[cfg(target_os = "windows")]
 pub fn setup_hooks() {
+    crate::log_info!("hooks", "Setting up Windows hooks...");
     thread::spawn(|| {
         let max_retries = 5;
         let mut retry_count = 0;
@@ -55,12 +56,12 @@ pub fn setup_hooks() {
         while retry_count < max_retries {
             match setup_windows_hooks_inner() {
                 Ok(_) => {
-                    println!("Windows hooks setup successfully");
+                    crate::log_info!("hooks", "Windows hooks setup successfully");
                     break;
                 }
                 Err(e) => {
                     retry_count += 1;
-                    eprintln!("Failed to setup Windows hooks (attempt {}): {}", retry_count, e);
+                    crate::log_error!("hooks", "Failed to setup Windows hooks (attempt {}): {}", retry_count, e);
                     send_message(format!("Hook setup failed (attempt {}): {}", retry_count, e));
                     
                     if retry_count < max_retries {
@@ -71,7 +72,7 @@ pub fn setup_hooks() {
         }
         
         if retry_count >= max_retries {
-            eprintln!("Failed to setup Windows hooks after {} attempts", max_retries);
+            crate::log_error!("hooks", "Failed to setup Windows hooks after {} attempts", max_retries);
             send_message("Critical: Failed to setup Windows hooks after multiple attempts".to_string());
         }
     });
@@ -104,6 +105,7 @@ fn setup_windows_hooks_inner() -> Result<(), String> {
         }
 
         send_message("Successfully set both keyboard and mouse hooks".to_string());
+        crate::log_info!("hooks", "Successfully set both keyboard and mouse hooks");
 
         // Message loop with error handling
         let mut msg: MSG = std::mem::zeroed();
@@ -130,6 +132,7 @@ fn setup_windows_hooks_inner() -> Result<(), String> {
 
 #[cfg(target_os = "macos")]
 pub fn setup_hooks() {
+    crate::log_info!("hooks", "Setting up macOS event tap...");
     std::thread::spawn(|| {
         let max_retries = 3;
         let mut retry_count = 0;
@@ -139,15 +142,15 @@ pub fn setup_hooks() {
             
             match setup_macos_hooks_inner() {
                 Ok(_) => {
-                    println!("macOS event tap completed normally");
+                    crate::log_info!("hooks", "macOS event tap completed normally");
                     break;
                 }
                 Err(e) => {
                     retry_count += 1;
-                    eprintln!("macOS event tap failed (attempt {}): {}", retry_count, e);
+                    crate::log_error!("hooks", "macOS event tap failed (attempt {}): {}", retry_count, e);
                     
                     if retry_count < max_retries {
-                        println!("Retrying event tap setup in 3 seconds...");
+                        crate::log_info!("hooks", "Retrying event tap setup in 3 seconds...");
                         std::thread::sleep(Duration::from_secs(3));
                     }
                 }
@@ -157,7 +160,7 @@ pub fn setup_hooks() {
         }
         
         if retry_count >= max_retries {
-            eprintln!("Failed to setup macOS event tap after {} attempts", max_retries);
+            crate::log_error!("hooks", "Failed to setup macOS event tap after {} attempts", max_retries);
         }
     });
     
@@ -167,7 +170,7 @@ pub fn setup_hooks() {
             std::thread::sleep(Duration::from_secs(30)); // Check every 30 seconds
             
             if !EVENT_TAP_RUNNING.load(Ordering::SeqCst) {
-                println!("Event tap not running, attempting restart...");
+                crate::log_warning!("hooks", "Event tap not running, attempting restart...");
                 setup_hooks(); // Recursive call to restart
                 break; // Exit this monitoring thread as a new one will be started
             }
@@ -213,10 +216,10 @@ fn setup_macos_hooks_inner() -> Result<(), String> {
         let current_runloop = CFRunLoop::get_current();
         current_runloop.add_source(&source, core_foundation::runloop::kCFRunLoopCommonModes);
         
-        println!("Starting macOS event tap run loop...");
+        crate::log_info!("hooks", "Starting macOS event tap run loop...");
         CFRunLoop::run_current();
         
-        println!("macOS event tap run loop stopped");
+        crate::log_warning!("hooks", "macOS event tap run loop stopped");
         Ok(())
     }
 }
@@ -259,7 +262,7 @@ fn activity_handler() {
     let current_time = get_current_time();
     report_activity(); // Report to health monitor
     if let Err(e) = EVENT_QUEUE_SENDER.lock().unwrap().send(current_time) {
-        eprintln!("Failed to send event to queue: {}", e);
+        crate::log_error!("hooks", "Failed to send event to queue: {}", e);
     }
 }
 
@@ -273,7 +276,7 @@ unsafe extern "system" fn keyboard_hook_callback(
         let current_time = get_current_time();
         report_activity(); // Report to health monitor
         if let Err(e) = EVENT_QUEUE_SENDER.lock().unwrap().send(current_time) {
-            eprintln!("Failed to send keyboard event to queue: {}", e);
+            crate::log_error!("hooks", "Failed to send keyboard event to queue: {}", e);
         }
     }
     CallNextHookEx(ptr::null_mut(), code, w_param, l_param)
@@ -285,7 +288,7 @@ unsafe extern "system" fn mouse_hook_callback(code: i32, w_param: usize, l_param
         let current_time = get_current_time();
         report_activity(); // Report to health monitor
         if let Err(e) = EVENT_QUEUE_SENDER.lock().unwrap().send(current_time) {
-            eprintln!("Failed to send mouse event to queue: {}", e);
+            crate::log_error!("hooks", "Failed to send mouse event to queue: {}", e);
         }
     }
     CallNextHookEx(ptr::null_mut(), code, w_param, l_param)

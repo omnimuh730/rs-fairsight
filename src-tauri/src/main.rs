@@ -12,6 +12,7 @@ mod commands;
 mod app_state;
 mod ui_setup;
 mod health_monitor;
+mod logger;
 #[cfg(target_os = "macos")]
 mod macos_utils;
 
@@ -25,13 +26,16 @@ use crate::file_utils::{is_log_file_valid, load_backup};
 use crate::hooks::setup_hooks;
 use crate::time_tracker::initialize_time_tracking;
 use crate::web_server::start_web_server;
-use crate::commands::{greet, sync_time_data, aggregate_week_activity_logs, get_health_status};
+use crate::commands::{greet, sync_time_data, aggregate_week_activity_logs, get_health_status, get_all_logs, get_recent_logs_limited, clear_all_logs};
 use crate::ui_setup::{setup_tray_and_window_events, handle_window_event};
 use crate::health_monitor::initialize_health_monitoring;
 
 #[cfg(target_os = "macos")]
 use dirs;
 fn main() {
+    // Initialize logging first
+    crate::log_info!("main", "Application starting...");
+    
     let mut builder = tauri::Builder::default();
 
     #[cfg(desktop)]
@@ -45,9 +49,11 @@ fn main() {
     
     // Initialize time tracking
     initialize_time_tracking();
+    crate::log_info!("main", "Time tracking initialized");
     
     // Initialize health monitoring
     initialize_health_monitoring();
+    crate::log_info!("main", "Health monitoring initialized");
 
     // Initialize backup and validation with better error handling
     #[cfg(target_os = "windows")]
@@ -131,7 +137,7 @@ fn main() {
         })
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(
-            tauri::generate_handler![greet, sync_time_data, aggregate_week_activity_logs, get_health_status]
+            tauri::generate_handler![greet, sync_time_data, aggregate_week_activity_logs, get_health_status, get_all_logs, get_recent_logs_limited, clear_all_logs]
         )
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

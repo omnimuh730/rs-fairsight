@@ -47,13 +47,10 @@ impl HealthMonitor {
                 let last_activity = last_activity_time.load(Ordering::SeqCst);
                 
                 if last_activity > 0 && current_time - last_activity > INACTIVITY_THRESHOLD {
-                    eprintln!("Warning: No activity tracked for {} seconds", current_time - last_activity);
+                    crate::log_warning!("health_monitor", "No activity tracked for {} seconds - potential tracking issue", current_time - last_activity);
                     
                     #[cfg(target_os = "windows")]
                     send_message(format!("Warning: Time tracking may have stopped. Last activity: {} seconds ago", current_time - last_activity));
-                    
-                    #[cfg(target_os = "macos")]
-                    println!("Warning: Time tracking may have stopped. Last activity: {} seconds ago", current_time - last_activity);
                 }
             }
         });
