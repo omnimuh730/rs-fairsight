@@ -17,6 +17,23 @@ import {
 
 const versionData = [
 	{
+		version: 'v1.0.0',
+		date: 'July 25, 2025',
+		title: 'Network Monitoring & Production Release',
+		description: 'Milestone release with comprehensive network monitoring and production-ready features',
+		icon: <MonitorIcon />,
+		color: 'success',
+		features: [
+			'Advanced Network Traffic Monitoring',
+			'Real-time Packet Capture Engine',
+			'Weekly Network Activity Analytics',
+			'Network Data Backup System',
+			'Enhanced UI with Country Flags',
+			'Performance Optimizations'
+		],
+		commits: '0d3b850 → 0755c91'
+	},
+	{
 		version: 'v0.9.0',
 		date: 'July 21, 2025',
 		title: 'Advanced Monitoring & Modular Architecture',

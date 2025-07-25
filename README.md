@@ -5,20 +5,22 @@ A powerful cross-platform time tracking and monitoring application built with Ta
 ## 🚀 Features
 
 - **Real-time Activity Monitoring**: Track your computer usage and productivity patterns
+- **Network Traffic Monitoring**: Advanced network packet capture and traffic analysis with real-time statistics
+- **Weekly Network Analytics**: Comprehensive network activity reports with detailed charts and insights
 - **Health Monitoring System**: Get intelligent warnings and insights about your work habits
 - **Cross-Platform Support**: Works seamlessly on Windows, macOS, and Linux
 - **Secure Data Storage**: Encrypted local database for your privacy
-- **Backup & Recovery**: Robust data backup system with atomic operations
+- **Backup & Recovery**: Robust data backup system with atomic operations and daily cleanup
 - **Server Synchronization**: Sync your data across devices
-- **Beautiful Analytics**: Comprehensive charts and weekly reports
-- **System Tray Integration**: Runs quietly in the background
+- **Beautiful Analytics**: Comprehensive charts and weekly reports for both activity and network data
+- **System Tray Integration**: Runs quietly in the background with real-time monitoring
 - **Auto-Startup**: Automatically launches with your system
 
 ## 📋 Version History
 
 For detailed information about the evolution of RS-FairSight, see [VERSION_EVOLUTION.md](./VERSION_EVOLUTION.md).
 
-**Current Version**: v0.9.0 (July 2025)
+**Current Version**: v1.0.0 (July 2025)
 
 ## 🛠 Technology Stack
 
@@ -35,14 +37,17 @@ The application features a modular architecture with separated concerns:
 
 ```
 src-tauri/src/
-├── app_state.rs      # Application state management
-├── commands.rs       # Tauri command handlers  
-├── encryption.rs     # Data encryption utilities
-├── file_utils.rs     # File system operations
-├── health_monitor.rs # Activity monitoring
-├── logger.rs         # Logging infrastructure
-├── time_tracker.rs   # Core time tracking logic
-└── web_server.rs     # Server communication
+├── app_state.rs         # Application state management
+├── commands.rs          # Tauri command handlers  
+├── encryption.rs        # Data encryption utilities
+├── file_utils.rs        # File system operations
+├── health_monitor.rs    # Activity monitoring
+├── logger.rs            # Logging infrastructure
+├── network_monitor.rs   # Network traffic monitoring
+├── real_traffic_monitor.rs # Real-time packet capture
+├── time_tracker.rs      # Core time tracking logic
+├── traffic_monitor.rs   # Traffic analysis and statistics
+└── web_server.rs        # Server communication
 ```
 
 ## 🚀 Getting Started
@@ -83,6 +88,7 @@ npm run tauri build
 - **v0.2.5**: Server integration and stability improvements
 - **v0.5.0**: Comprehensive backup and recovery system
 - **v0.9.0**: Advanced health monitoring and modular architecture
+- **v1.0.0**: Network monitoring, packet capture, and production release
 
 ## 🤝 Contributing
 
