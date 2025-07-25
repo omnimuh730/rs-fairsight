@@ -25,7 +25,7 @@ import WeeklyActivityPage from '../WeeklyActivityPage';
 import ChangeLogsPage from '../ChangeLogsPage';
 import MonitorPage from '../MonitorPage';
 import NetworkMonitorPage from '../NetworkMonitorPage';
-import WeeklyNetworkActivityPage from '../pages/WeeklyNetworkActivityPage';
+import WeeklyNetworkActivityPage from '../WeeklyNetworkActivityPage';
 
 const drawerWidth = 240;
 
@@ -36,7 +36,7 @@ const listItems = [
   { text: 'Changelogs', icon: <AutoGraph />, path: '/sent' },
   { text: 'System Monitor', icon: <Monitor />, path: '/monitor' },
   { text: 'Network Monitor', icon: <NetworkCheck />, path: '/network' },
-  { text: 'Weekly Network Activity', icon: <TrendingUp />, path: '/network-weekly' },
+  { text: 'Network Activity', icon: <TrendingUp />, path: '/network-weekly' },
 ];
 
 function ResponsiveDrawer(props) {
