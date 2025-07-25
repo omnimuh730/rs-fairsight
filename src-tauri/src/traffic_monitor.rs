@@ -212,19 +212,21 @@ impl TrafficMonitor {
 
         // Simulate network monitoring (in a real implementation, this would use pcap)
         let mut interval = tokio::time::interval(Duration::from_secs(1));
+        let mut save_interval = tokio::time::interval(Duration::from_secs(8)); // Save every 8 seconds
         let start_time = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
+        let mut last_save_time = start_time;
 
         while *is_running.read() {
-            interval.tick().await;
-
-            let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
-            
-            // Simulate traffic data (replace with real packet capture)
-            let mut rng = rand::rng();
-            let incoming_bytes = rng.random_range(1024..102400) as u64; // 1KB to 100KB per second
-            let outgoing_bytes = rng.random_range(512..51200) as u64;   // 0.5KB to 50KB per second
-            let incoming_packets = incoming_bytes / 1024 + 1;
-            let outgoing_packets = outgoing_bytes / 1024 + 1;
+            tokio::select! {
+                _ = interval.tick() => {
+                    let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
+                    
+                    // Simulate traffic data (replace with real packet capture)
+                    let mut rng = rand::rng();
+                    let incoming_bytes = rng.random_range(1024..102400) as u64; // 1KB to 100KB per second
+                    let outgoing_bytes = rng.random_range(512..51200) as u64;   // 0.5KB to 50KB per second
+                    let incoming_packets = incoming_bytes / 1024 + 1;
+                    let outgoing_packets = outgoing_bytes / 1024 + 1;
 
             // Update traffic history
             {
@@ -266,6 +268,39 @@ impl TrafficMonitor {
             // Simulate some services
             if rng.gen::<f32>() < 0.2 {
                 Self::simulate_service(&services, incoming_bytes + outgoing_bytes);
+            }
+                }
+                
+                _ = save_interval.tick() => {
+                    // Save session data every 8 seconds
+                    let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
+                    let current_stats = {
+                        let stats_guard = stats.read();
+                        stats_guard.clone()
+                    };
+                    
+                    let session = NetworkSession {
+                        adapter_name: adapter_name.clone(),
+                        start_time: last_save_time,
+                        end_time: Some(now),
+                        total_incoming_bytes: current_stats.total_incoming_bytes,
+                        total_outgoing_bytes: current_stats.total_outgoing_bytes,
+                        total_incoming_packets: current_stats.total_incoming_packets,
+                        total_outgoing_packets: current_stats.total_outgoing_packets,
+                        duration: now - last_save_time,
+                        traffic_data: current_stats.traffic_rate.clone(),
+                        top_hosts: current_stats.network_hosts.iter().take(10).cloned().collect(),
+                        top_services: current_stats.services.iter().take(10).cloned().collect(),
+                    };
+
+                    if let Err(e) = NETWORK_STORAGE.save_session(&session) {
+                        eprintln!("Failed to save periodic network session: {}", e);
+                    } else {
+                        println!("Periodic network session saved (8 seconds)");
+                    }
+                    
+                    last_save_time = now;
+                }
             }
         }
 

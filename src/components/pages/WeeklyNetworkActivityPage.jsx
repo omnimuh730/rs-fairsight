@@ -144,309 +144,849 @@ const WeeklyNetworkActivityPage = () => {
 
 	return (
 		<LocalizationProvider dateAdapter={AdapterDayjs}>
-			<Container maxWidth="xl" sx={{ py: 3 }}>
-				<Typography variant="h4" gutterBottom>
-					<NetworkCheck sx={{ mr: 1, verticalAlign: 'middle' }} />
-					Weekly Network Activity
-				</Typography>
+			<Container maxWidth="xl" sx={{ 
+				py: { xs: 3, md: 4 }, 
+				px: { xs: 2, md: 3 },
+				background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)',
+				minHeight: '100vh'
+			}}>
+				{/* Header */}
+				<Paper elevation={0} sx={{ 
+					mb: 4, 
+					p: { xs: 3, md: 4 },
+					background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+					color: 'white',
+					borderRadius: 3
+				}}>
+					<Typography variant="h4" gutterBottom sx={{ 
+						display: 'flex', 
+						alignItems: 'center',
+						fontSize: { xs: '1.75rem', md: '2.125rem' },
+						fontWeight: 700,
+						mb: 2
+					}}>
+						<NetworkCheck sx={{ mr: 2, fontSize: { xs: '2rem', md: '2.5rem' } }} />
+						Weekly Network Activity
+					</Typography>
+					<Typography variant="h6" sx={{ 
+						opacity: 0.95,
+						fontSize: { xs: '1rem', md: '1.25rem' },
+						fontWeight: 400
+					}}>
+						Comprehensive analysis of your network usage patterns and traffic statistics
+					</Typography>
+				</Paper>
 
 				{/* Date Selection */}
-				<Card sx={{ mb: 3 }}>
-					<CardContent>
-						<Grid container spacing={3} alignItems="center">
-							<Grid item xs={12} md={3}>
+				<Card sx={{ 
+					mb: 4, 
+					boxShadow: '0 8px 32px rgba(0,0,0,0.1)', 
+					borderRadius: 3,
+					border: '1px solid rgba(255,255,255,0.2)'
+				}}>
+					<CardContent sx={{ p: { xs: 3, md: 4 } }}>
+						<Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
+							<Schedule sx={{ mr: 2, color: 'primary.main', fontSize: '1.5rem' }} />
+							<Typography variant="h5" sx={{ 
+								fontWeight: 600,
+								color: 'text.primary'
+							}}>
+								Select Date Range
+							</Typography>
+						</Box>
+						<Grid container spacing={3} alignItems="end">
+							<Grid item xs={12} sm={6} md={3}>
 								<DatePicker
 									label="Start Date"
 									value={startDate}
 									onChange={(newValue) => setStartDate(newValue)}
-									slotProps={{ textField: { fullWidth: true } }}
+									slotProps={{ 
+										textField: { 
+											fullWidth: true,
+											size: 'medium',
+											variant: 'outlined'
+										} 
+									}}
 								/>
 							</Grid>
-							<Grid item xs={12} md={3}>
+							<Grid item xs={12} sm={6} md={3}>
 								<DatePicker
 									label="End Date"
 									value={endDate}
 									onChange={(newValue) => setEndDate(newValue)}
-									slotProps={{ textField: { fullWidth: true } }}
+									slotProps={{ 
+										textField: { 
+											fullWidth: true,
+											size: 'medium',
+											variant: 'outlined'
+										} 
+									}}
 								/>
 							</Grid>
-							<Grid item xs={12} md={3}>
+							<Grid item xs={12} sm={8} md={4}>
 								<Button
 									variant="contained"
 									onClick={fetchNetworkData}
 									disabled={loading}
-									startIcon={loading ? <CircularProgress size={20} /> : <Refresh />}
+									startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <Refresh />}
 									fullWidth
+									size="large"
+									sx={{ 
+										py: 2,
+										borderRadius: 2,
+										textTransform: 'none',
+										fontSize: '1rem',
+										fontWeight: 600,
+										background: 'linear-gradient(45deg, #2196F3 30%, #21CBF3 90%)',
+										'&:hover': {
+											background: 'linear-gradient(45deg, #1976D2 30%, #1CB5E0 90%)',
+										}
+									}}
 								>
 									{loading ? 'Loading...' : 'Fetch Data'}
 								</Button>
+							</Grid>
+							<Grid item xs={12} sm={4} md={2}>
+								<Box sx={{ 
+									textAlign: 'center',
+									p: 2,
+									bgcolor: 'action.hover',
+									borderRadius: 2,
+									border: '1px solid',
+									borderColor: 'divider'
+								}}>
+									<Typography variant="body2" color="text.secondary" fontWeight={500}>
+										{networkData.length > 0 ? `${networkData.length} days loaded` : 'No data'}
+									</Typography>
+								</Box>
 							</Grid>
 						</Grid>
 					</CardContent>
 				</Card>
 
 				{error && (
-					<Alert severity="error" sx={{ mb: 3 }}>
-						{error}
+					<Alert 
+						severity="error" 
+						sx={{ 
+							mb: 4, 
+							borderRadius: 3,
+							boxShadow: '0 4px 20px rgba(244, 67, 54, 0.15)',
+							border: '1px solid rgba(244, 67, 54, 0.2)'
+						}}
+					>
+						<Typography variant="body1" fontWeight={500}>{error}</Typography>
 					</Alert>
 				)}
 
 				{/* Summary Statistics */}
-				<Grid container spacing={3} sx={{ mb: 3 }}>
-					<Grid item xs={12} sm={6} md={2}>
-						<Card>
-							<CardContent>
-								<Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-									<CloudDownload sx={{ mr: 1, color: 'primary.main' }} />
-									<Typography variant="h6" color="primary">
-										Incoming
-									</Typography>
-								</Box>
-								<Typography variant="h5">
-									{formatBytes(totalStats.totalIncoming)}
-								</Typography>
-							</CardContent>
-						</Card>
-					</Grid>
-					<Grid item xs={12} sm={6} md={2}>
-						<Card>
-							<CardContent>
-								<Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-									<CloudUpload sx={{ mr: 1, color: 'secondary.main' }} />
-									<Typography variant="h6" color="secondary">
-										Outgoing
-									</Typography>
-								</Box>
-								<Typography variant="h5">
-									{formatBytes(totalStats.totalOutgoing)}
-								</Typography>
-							</CardContent>
-						</Card>
-					</Grid>
-					<Grid item xs={12} sm={6} md={2}>
-						<Card>
-							<CardContent>
-								<Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-									<Schedule sx={{ mr: 1, color: 'info.main' }} />
-									<Typography variant="h6" color="info.main">
-										Duration
-									</Typography>
-								</Box>
-								<Typography variant="h5">
-									{formatDuration(totalStats.totalDuration)}
-								</Typography>
-							</CardContent>
-						</Card>
-					</Grid>
-					<Grid item xs={12} sm={6} md={2}>
-						<Card>
-							<CardContent>
-								<Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-									<Computer sx={{ mr: 1, color: 'success.main' }} />
-									<Typography variant="h6" color="success.main">
-										Hosts
-									</Typography>
-								</Box>
-								<Typography variant="h5">
-									{totalStats.uniqueHosts}
-								</Typography>
-							</CardContent>
-						</Card>
-					</Grid>
-					<Grid item xs={12} sm={6} md={2}>
-						<Card>
-							<CardContent>
-								<Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-									<TrendingUp sx={{ mr: 1, color: 'warning.main' }} />
-									<Typography variant="h6" color="warning.main">
-										Services
-									</Typography>
-								</Box>
-								<Typography variant="h5">
-									{totalStats.uniqueServices}
-								</Typography>
-							</CardContent>
-						</Card>
-					</Grid>
-					<Grid item xs={12} sm={6} md={2}>
-						<Card>
-							<CardContent>
-								<Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-									<NetworkCheck sx={{ mr: 1, color: 'text.secondary' }} />
-									<Typography variant="h6" color="text.secondary">
-										Sessions
-									</Typography>
-								</Box>
-								<Typography variant="h5">
-									{totalStats.totalSessions}
-								</Typography>
-							</CardContent>
-						</Card>
-					</Grid>
-				</Grid>
+				<Card sx={{ 
+					mb: 4,
+					boxShadow: '0 8px 32px rgba(0,0,0,0.1)',
+					borderRadius: 3,
+					border: '1px solid rgba(255,255,255,0.2)'
+				}}>
+					<CardContent sx={{ p: { xs: 3, md: 4 } }}>
+						<Box sx={{ display: 'flex', alignItems: 'center', mb: 4 }}>
+							<TrendingUp sx={{ mr: 2, color: 'primary.main', fontSize: '1.5rem' }} />
+							<Typography variant="h5" sx={{ fontWeight: 600, color: 'text.primary' }}>
+								Summary Statistics
+							</Typography>
+						</Box>
+						<Grid container spacing={3}>
+							<Grid item xs={6} sm={4} md={2}>
+								<Card sx={{ 
+									height: '100%', 
+									boxShadow: '0 4px 20px rgba(33, 150, 243, 0.15)',
+									borderRadius: 2,
+									border: '2px solid rgba(33, 150, 243, 0.1)',
+									transition: 'all 0.3s ease',
+									'&:hover': {
+										transform: 'translateY(-4px)',
+										boxShadow: '0 8px 25px rgba(33, 150, 243, 0.25)',
+										borderColor: 'primary.main'
+									}
+								}}>
+									<CardContent sx={{ p: 3, textAlign: 'center' }}>
+										<Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mb: 2 }}>
+											<CloudDownload sx={{ 
+												fontSize: 48, 
+												color: 'primary.main', 
+												mb: 1.5 
+											}} />
+											<Typography variant="h6" color="primary" sx={{ 
+												fontSize: '1rem',
+												fontWeight: 700,
+												textTransform: 'uppercase',
+												letterSpacing: 1
+											}}>
+												Incoming
+											</Typography>
+										</Box>
+										<Typography variant="h4" sx={{ 
+											fontSize: { xs: '1.5rem', md: '1.75rem' },
+											fontWeight: 800,
+											color: 'text.primary'
+										}}>
+											{formatBytes(totalStats.totalIncoming)}
+										</Typography>
+									</CardContent>
+								</Card>
+							</Grid>
+							<Grid item xs={6} sm={4} md={2}>
+								<Card sx={{ 
+									height: '100%', 
+									boxShadow: '0 4px 20px rgba(255, 152, 0, 0.15)',
+									borderRadius: 2,
+									border: '2px solid rgba(255, 152, 0, 0.1)',
+									transition: 'all 0.3s ease',
+									'&:hover': {
+										transform: 'translateY(-4px)',
+										boxShadow: '0 8px 25px rgba(255, 152, 0, 0.25)',
+										borderColor: 'secondary.main'
+									}
+								}}>
+									<CardContent sx={{ p: 3, textAlign: 'center' }}>
+										<Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mb: 2 }}>
+											<CloudUpload sx={{ 
+												fontSize: 48, 
+												color: 'secondary.main', 
+												mb: 1.5 
+											}} />
+											<Typography variant="h6" color="secondary" sx={{ 
+												fontSize: '1rem',
+												fontWeight: 700,
+												textTransform: 'uppercase',
+												letterSpacing: 1
+											}}>
+												Outgoing
+											</Typography>
+										</Box>
+										<Typography variant="h4" sx={{ 
+											fontSize: { xs: '1.5rem', md: '1.75rem' },
+											fontWeight: 800,
+											color: 'text.primary'
+										}}>
+											{formatBytes(totalStats.totalOutgoing)}
+										</Typography>
+									</CardContent>
+								</Card>
+							</Grid>
+							<Grid item xs={6} sm={4} md={2}>
+								<Card sx={{ 
+									height: '100%', 
+									boxShadow: '0 4px 20px rgba(33, 150, 243, 0.15)',
+									borderRadius: 2,
+									border: '2px solid rgba(33, 150, 243, 0.1)',
+									transition: 'all 0.3s ease',
+									'&:hover': {
+										transform: 'translateY(-4px)',
+										boxShadow: '0 8px 25px rgba(33, 150, 243, 0.25)',
+										borderColor: 'info.main'
+									}
+								}}>
+									<CardContent sx={{ p: 3, textAlign: 'center' }}>
+										<Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mb: 2 }}>
+											<Schedule sx={{ 
+												fontSize: 48, 
+												color: 'info.main', 
+												mb: 1.5 
+											}} />
+											<Typography variant="h6" color="info.main" sx={{ 
+												fontSize: '1rem',
+												fontWeight: 700,
+												textTransform: 'uppercase',
+												letterSpacing: 1
+											}}>
+												Duration
+											</Typography>
+										</Box>
+										<Typography variant="h4" sx={{ 
+											fontSize: { xs: '1.5rem', md: '1.75rem' },
+											fontWeight: 800,
+											color: 'text.primary'
+										}}>
+											{formatDuration(totalStats.totalDuration)}
+										</Typography>
+									</CardContent>
+								</Card>
+							</Grid>
+							<Grid item xs={6} sm={4} md={2}>
+								<Card sx={{ 
+									height: '100%', 
+									boxShadow: '0 4px 20px rgba(76, 175, 80, 0.15)',
+									borderRadius: 2,
+									border: '2px solid rgba(76, 175, 80, 0.1)',
+									transition: 'all 0.3s ease',
+									'&:hover': {
+										transform: 'translateY(-4px)',
+										boxShadow: '0 8px 25px rgba(76, 175, 80, 0.25)',
+										borderColor: 'success.main'
+									}
+								}}>
+									<CardContent sx={{ p: 3, textAlign: 'center' }}>
+										<Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mb: 2 }}>
+											<Computer sx={{ 
+												fontSize: 48, 
+												color: 'success.main', 
+												mb: 1.5 
+											}} />
+											<Typography variant="h6" color="success.main" sx={{ 
+												fontSize: '1rem',
+												fontWeight: 700,
+												textTransform: 'uppercase',
+												letterSpacing: 1
+											}}>
+												Hosts
+											</Typography>
+										</Box>
+										<Typography variant="h4" sx={{ 
+											fontSize: { xs: '1.5rem', md: '1.75rem' },
+											fontWeight: 800,
+											color: 'text.primary'
+										}}>
+											{totalStats.uniqueHosts}
+										</Typography>
+									</CardContent>
+								</Card>
+							</Grid>
+							<Grid item xs={6} sm={4} md={2}>
+								<Card sx={{ 
+									height: '100%', 
+									boxShadow: '0 4px 20px rgba(255, 152, 0, 0.15)',
+									borderRadius: 2,
+									border: '2px solid rgba(255, 152, 0, 0.1)',
+									transition: 'all 0.3s ease',
+									'&:hover': {
+										transform: 'translateY(-4px)',
+										boxShadow: '0 8px 25px rgba(255, 152, 0, 0.25)',
+										borderColor: 'warning.main'
+									}
+								}}>
+									<CardContent sx={{ p: 3, textAlign: 'center' }}>
+										<Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mb: 2 }}>
+											<TrendingUp sx={{ 
+												fontSize: 48, 
+												color: 'warning.main', 
+												mb: 1.5 
+											}} />
+											<Typography variant="h6" color="warning.main" sx={{ 
+												fontSize: '1rem',
+												fontWeight: 700,
+												textTransform: 'uppercase',
+												letterSpacing: 1
+											}}>
+												Services
+											</Typography>
+										</Box>
+										<Typography variant="h4" sx={{ 
+											fontSize: { xs: '1.5rem', md: '1.75rem' },
+											fontWeight: 800,
+											color: 'text.primary'
+										}}>
+											{totalStats.uniqueServices}
+										</Typography>
+									</CardContent>
+								</Card>
+							</Grid>
+							<Grid item xs={6} sm={4} md={2}>
+								<Card sx={{ 
+									height: '100%', 
+									boxShadow: '0 4px 20px rgba(156, 39, 176, 0.15)',
+									borderRadius: 2,
+									border: '2px solid rgba(156, 39, 176, 0.1)',
+									transition: 'all 0.3s ease',
+									'&:hover': {
+										transform: 'translateY(-4px)',
+										boxShadow: '0 8px 25px rgba(156, 39, 176, 0.25)',
+										borderColor: 'purple'
+									}
+								}}>
+									<CardContent sx={{ p: 3, textAlign: 'center' }}>
+										<Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mb: 2 }}>
+											<NetworkCheck sx={{ 
+												fontSize: 48, 
+												color: '#9c27b0', 
+												mb: 1.5 
+											}} />
+											<Typography variant="h6" sx={{ 
+												fontSize: '1rem',
+												fontWeight: 700,
+												textTransform: 'uppercase',
+												letterSpacing: 1,
+												color: '#9c27b0'
+											}}>
+												Sessions
+											</Typography>
+										</Box>
+										<Typography variant="h4" sx={{ 
+											fontSize: { xs: '1.5rem', md: '1.75rem' },
+											fontWeight: 800,
+											color: 'text.primary'
+										}}>
+											{totalStats.totalSessions}
+										</Typography>
+									</CardContent>
+								</Card>
+							</Grid>
+						</Grid>
+					</CardContent>
+				</Card>
 
 				{/* Charts */}
-				<Grid container spacing={3}>
-					{/* Daily Traffic Chart */}
-					<Grid item xs={12} lg={8}>
-						<Card>
-							<CardContent>
-								<Typography variant="h6" gutterBottom>
-									Daily Network Traffic (MB)
-								</Typography>
-								<ResponsiveContainer width="100%" height={300}>
-									<LineChart data={chartData}>
-										<CartesianGrid strokeDasharray="3 3" />
-										<XAxis dataKey="date" />
-										<YAxis />
-										<Tooltip formatter={(value) => [`${value} MB`, '']} />
-										<Legend />
-										<Line
-											type="monotone"
-											dataKey="incoming"
-											stroke="#2196f3"
-											strokeWidth={3}
-											name="Incoming"
-										/>
-										<Line
-											type="monotone"
-											dataKey="outgoing"
-											stroke="#ff9800"
-											strokeWidth={3}
-											name="Outgoing"
-										/>
-									</LineChart>
-								</ResponsiveContainer>
-							</CardContent>
-						</Card>
-					</Grid>
+				<Card sx={{ 
+					mb: 4,
+					boxShadow: '0 8px 32px rgba(0,0,0,0.1)',
+					borderRadius: 3,
+					border: '1px solid rgba(255,255,255,0.2)'
+				}}>
+					<CardContent sx={{ p: { xs: 3, md: 4 } }}>
+						<Box sx={{ display: 'flex', alignItems: 'center', mb: 4 }}>
+							<TrendingUp sx={{ mr: 2, color: 'primary.main', fontSize: '1.5rem' }} />
+							<Typography variant="h5" sx={{ fontWeight: 600, color: 'text.primary' }}>
+								Analytics & Trends
+							</Typography>
+						</Box>
+						<Grid container spacing={3}>
+							{/* Daily Traffic Chart */}
+							<Grid item xs={12} lg={8}>
+								<Card sx={{ 
+									height: 500, 
+									boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
+									borderRadius: 2,
+									border: '1px solid rgba(0,0,0,0.08)'
+								}}>
+									<CardContent sx={{ p: 3, height: '100%' }}>
+										<Typography variant="h6" gutterBottom sx={{ fontWeight: 600, mb: 3 }}>
+											Daily Network Traffic (MB)
+										</Typography>
+										<Box sx={{ height: 400 }}>
+											<ResponsiveContainer width="100%" height="100%">
+												<LineChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
+													<CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+													<XAxis 
+														dataKey="date" 
+														fontSize={12}
+														tick={{ fill: '#666' }}
+														axisLine={{ stroke: '#ddd' }}
+													/>
+													<YAxis 
+														fontSize={12}
+														tick={{ fill: '#666' }}
+														axisLine={{ stroke: '#ddd' }}
+													/>
+													<Tooltip 
+														formatter={(value) => [`${value} MB`, '']} 
+														contentStyle={{
+															backgroundColor: '#fff',
+															border: '1px solid #ddd',
+															borderRadius: 8,
+															boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
+														}}
+													/>
+													<Legend />
+													<Line
+														type="monotone"
+														dataKey="incoming"
+														stroke="#2196f3"
+														strokeWidth={3}
+														name="Incoming"
+														dot={{ fill: '#2196f3', strokeWidth: 2, r: 4 }}
+														activeDot={{ r: 6, stroke: '#2196f3', strokeWidth: 2 }}
+													/>
+													<Line
+														type="monotone"
+														dataKey="outgoing"
+														stroke="#ff9800"
+														strokeWidth={3}
+														name="Outgoing"
+														dot={{ fill: '#ff9800', strokeWidth: 2, r: 4 }}
+														activeDot={{ r: 6, stroke: '#ff9800', strokeWidth: 2 }}
+													/>
+												</LineChart>
+											</ResponsiveContainer>
+										</Box>
+									</CardContent>
+								</Card>
+							</Grid>
 
-					{/* Traffic Distribution */}
-					<Grid item xs={12} lg={4}>
-						<Card>
-							<CardContent>
-								<Typography variant="h6" gutterBottom>
-									Traffic Distribution
-								</Typography>
-								<ResponsiveContainer width="100%" height={300}>
-									<PieChart>
-										<Pie
-											data={pieData}
-											cx="50%"
-											cy="50%"
-											labelLine={false}
-											label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-											outerRadius={80}
-											fill="#8884d8"
-											dataKey="value"
-										>
-											{pieData.map((entry, index) => (
-												<Cell key={`cell-${index}`} fill={entry.color} />
-											))}
-										</Pie>
-										<Tooltip formatter={(value) => formatBytes(value)} />
-									</PieChart>
-								</ResponsiveContainer>
-							</CardContent>
-						</Card>
-					</Grid>
+							{/* Traffic Distribution */}
+							<Grid item xs={12} lg={4}>
+								<Card sx={{ 
+									height: 500, 
+									boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
+									borderRadius: 2,
+									border: '1px solid rgba(0,0,0,0.08)'
+								}}>
+									<CardContent sx={{ p: 3, height: '100%' }}>
+										<Typography variant="h6" gutterBottom sx={{ fontWeight: 600, mb: 3 }}>
+											Traffic Distribution
+										</Typography>
+										<Box sx={{ height: 400 }}>
+											<ResponsiveContainer width="100%" height="100%">
+												<PieChart>
+													<Pie
+														data={pieData}
+														cx="50%"
+														cy="50%"
+														labelLine={false}
+														label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+														outerRadius={120}
+														fill="#8884d8"
+														dataKey="value"
+													>
+														{pieData.map((entry, index) => (
+															<Cell key={`cell-${index}`} fill={entry.color} />
+														))}
+													</Pie>
+													<Tooltip 
+														formatter={(value) => formatBytes(value)}
+														contentStyle={{
+															backgroundColor: '#fff',
+															border: '1px solid #ddd',
+															borderRadius: 8,
+															boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
+														}}
+													/>
+												</PieChart>
+											</ResponsiveContainer>
+										</Box>
+									</CardContent>
+								</Card>
+							</Grid>
 
-					{/* Daily Sessions */}
-					<Grid item xs={12} lg={6}>
-						<Card>
-							<CardContent>
-								<Typography variant="h6" gutterBottom>
-									Daily Sessions & Duration
-								</Typography>
-								<ResponsiveContainer width="100%" height={300}>
-									<BarChart data={chartData}>
-										<CartesianGrid strokeDasharray="3 3" />
-										<XAxis dataKey="date" />
-										<YAxis yAxisId="left" />
-										<YAxis yAxisId="right" orientation="right" />
-										<Tooltip />
-										<Legend />
-										<Bar yAxisId="left" dataKey="sessions" fill="#4caf50" name="Sessions" />
-										<Bar yAxisId="right" dataKey="duration" fill="#9c27b0" name="Duration (min)" />
-									</BarChart>
-								</ResponsiveContainer>
-							</CardContent>
-						</Card>
-					</Grid>
+							{/* Daily Sessions */}
+							<Grid item xs={12} lg={6}>
+								<Card sx={{ 
+									height: 500, 
+									boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
+									borderRadius: 2,
+									border: '1px solid rgba(0,0,0,0.08)'
+								}}>
+									<CardContent sx={{ p: 3, height: '100%' }}>
+										<Typography variant="h6" gutterBottom sx={{ fontWeight: 600, mb: 3 }}>
+											Daily Sessions & Duration
+										</Typography>
+										<Box sx={{ height: 400 }}>
+											<ResponsiveContainer width="100%" height="100%">
+												<BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
+													<CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+													<XAxis 
+														dataKey="date" 
+														fontSize={12}
+														tick={{ fill: '#666' }}
+														axisLine={{ stroke: '#ddd' }}
+													/>
+													<YAxis 
+														yAxisId="left" 
+														fontSize={12}
+														tick={{ fill: '#666' }}
+														axisLine={{ stroke: '#ddd' }}
+													/>
+													<YAxis 
+														yAxisId="right" 
+														orientation="right" 
+														fontSize={12}
+														tick={{ fill: '#666' }}
+														axisLine={{ stroke: '#ddd' }}
+													/>
+													<Tooltip 
+														contentStyle={{
+															backgroundColor: '#fff',
+															border: '1px solid #ddd',
+															borderRadius: 8,
+															boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
+														}}
+													/>
+													<Legend />
+													<Bar yAxisId="left" dataKey="sessions" fill="#4caf50" name="Sessions" radius={[4, 4, 0, 0]} />
+													<Bar yAxisId="right" dataKey="duration" fill="#9c27b0" name="Duration (min)" radius={[4, 4, 0, 0]} />
+												</BarChart>
+											</ResponsiveContainer>
+										</Box>
+									</CardContent>
+								</Card>
+							</Grid>
 
-					{/* Hosts & Services */}
-					<Grid item xs={12} lg={6}>
-						<Card>
-							<CardContent>
-								<Typography variant="h6" gutterBottom>
-									Daily Hosts & Services
-								</Typography>
-								<ResponsiveContainer width="100%" height={300}>
-									<BarChart data={chartData}>
-										<CartesianGrid strokeDasharray="3 3" />
-										<XAxis dataKey="date" />
-										<YAxis />
-										<Tooltip />
-										<Legend />
-										<Bar dataKey="hosts" fill="#2196f3" name="Unique Hosts" />
-										<Bar dataKey="services" fill="#ff9800" name="Unique Services" />
-									</BarChart>
-								</ResponsiveContainer>
-							</CardContent>
-						</Card>
-					</Grid>
-				</Grid>
+							{/* Hosts & Services */}
+							<Grid item xs={12} lg={6}>
+								<Card sx={{ 
+									height: 500, 
+									boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
+									borderRadius: 2,
+									border: '1px solid rgba(0,0,0,0.08)'
+								}}>
+									<CardContent sx={{ p: 3, height: '100%' }}>
+										<Typography variant="h6" gutterBottom sx={{ fontWeight: 600, mb: 3 }}>
+											Daily Hosts & Services
+										</Typography>
+										<Box sx={{ height: 400 }}>
+											<ResponsiveContainer width="100%" height="100%">
+												<BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
+													<CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+													<XAxis 
+														dataKey="date" 
+														fontSize={12}
+														tick={{ fill: '#666' }}
+														axisLine={{ stroke: '#ddd' }}
+													/>
+													<YAxis 
+														fontSize={12}
+														tick={{ fill: '#666' }}
+														axisLine={{ stroke: '#ddd' }}
+													/>
+													<Tooltip 
+														contentStyle={{
+															backgroundColor: '#fff',
+															border: '1px solid #ddd',
+															borderRadius: 8,
+															boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
+														}}
+													/>
+													<Legend />
+													<Bar dataKey="hosts" fill="#2196f3" name="Unique Hosts" radius={[4, 4, 0, 0]} />
+													<Bar dataKey="services" fill="#ff9800" name="Unique Services" radius={[4, 4, 0, 0]} />
+												</BarChart>
+											</ResponsiveContainer>
+										</Box>
+									</CardContent>
+								</Card>
+							</Grid>
+						</Grid>
+					</CardContent>
+				</Card>
 
 				{/* Daily Details */}
 				{networkData.length > 0 && (
-					<Card sx={{ mt: 3 }}>
-						<CardContent>
-							<Typography variant="h6" gutterBottom>
-								Daily Details
-							</Typography>
-							<List>
-								{networkData.map((day, index) => (
-									<React.Fragment key={day.date}>
-										<ListItem>
-											<ListItemText
-												primary={
-													<Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-														<Typography variant="subtitle1" fontWeight="bold">
-															{day.date}
-														</Typography>
-														<Box sx={{ display: 'flex', gap: 1 }}>
-															<Chip 
-																label={`${day.sessions.length} sessions`} 
-																size="small" 
-																color="primary"
-																variant="outlined"
-															/>
-															<Chip 
-																label={formatBytes(day.total_incoming_bytes + day.total_outgoing_bytes)} 
-																size="small" 
-																color="secondary"
-																variant="outlined"
-															/>
-														</Box>
-													</Box>
+					<Card sx={{ 
+						boxShadow: '0 8px 32px rgba(0,0,0,0.1)',
+						borderRadius: 3,
+						border: '1px solid rgba(255,255,255,0.2)'
+					}}>
+						<CardContent sx={{ p: { xs: 3, md: 4 } }}>
+							<Box sx={{ display: 'flex', alignItems: 'center', mb: 4 }}>
+								<Computer sx={{ mr: 2, color: 'primary.main', fontSize: '1.5rem' }} />
+								<Typography variant="h5" sx={{ fontWeight: 600, color: 'text.primary' }}>
+									Daily Details
+								</Typography>
+							</Box>
+							<Box sx={{ 
+								maxHeight: { xs: 450, md: 550 }, 
+								overflow: 'auto',
+								bgcolor: 'grey.50',
+								borderRadius: 2,
+								p: 1,
+								'&::-webkit-scrollbar': {
+									width: '8px',
+								},
+								'&::-webkit-scrollbar-track': {
+									background: '#f1f1f1',
+									borderRadius: '4px',
+								},
+								'&::-webkit-scrollbar-thumb': {
+									background: 'linear-gradient(45deg, #2196F3 30%, #21CBF3 90%)',
+									borderRadius: '4px',
+								},
+								'&::-webkit-scrollbar-thumb:hover': {
+									background: 'linear-gradient(45deg, #1976D2 30%, #1CB5E0 90%)',
+								},
+							}}>
+								<List sx={{ p: 0 }}>
+									{networkData.map((day, index) => (
+										<React.Fragment key={day.date}>
+											<Card sx={{
+												mb: 2,
+												transition: 'all 0.3s ease',
+												'&:hover': {
+													transform: 'translateY(-2px)',
+													boxShadow: '0 8px 25px rgba(0,0,0,0.1)'
 												}
-												secondary={
-													<Box sx={{ mt: 1 }}>
-														<Typography variant="body2" color="text.secondary">
-															↓ {formatBytes(day.total_incoming_bytes)} | 
-															↑ {formatBytes(day.total_outgoing_bytes)} | 
-															Duration: {formatDuration(day.total_duration)} | 
-															Hosts: {day.unique_hosts} | 
-															Services: {day.unique_services}
-														</Typography>
-													</Box>
-												}
-											/>
-										</ListItem>
-										{index < networkData.length - 1 && <Divider />}
-									</React.Fragment>
-								))}
-							</List>
+											}}>
+												<ListItem sx={{ 
+													py: 3,
+													px: 3
+												}}>
+													<ListItemText
+														primary={
+															<Box sx={{ 
+																display: 'flex', 
+																justifyContent: 'space-between', 
+																alignItems: { xs: 'flex-start', sm: 'center' },
+																flexDirection: { xs: 'column', sm: 'row' },
+																gap: { xs: 2, sm: 0 },
+																mb: 2
+															}}>
+																<Typography variant="h6" fontWeight="bold" sx={{
+																	fontSize: { xs: '1.1rem', md: '1.25rem' },
+																	color: 'primary.main'
+																}}>
+																	{dayjs(day.date).format('dddd, MMMM D, YYYY')}
+																</Typography>
+																<Box sx={{ 
+																	display: 'flex', 
+																	gap: 1.5, 
+																	flexWrap: 'wrap',
+																	alignItems: 'center'
+																}}>
+																	<Chip 
+																		label={`${day.sessions.length} session${day.sessions.length !== 1 ? 's' : ''}`} 
+																		size="medium" 
+																		color="primary"
+																		variant="filled"
+																		sx={{ 
+																			fontWeight: 600,
+																			borderRadius: 3
+																		}}
+																	/>
+																	<Chip 
+																		label={formatBytes(day.total_incoming_bytes + day.total_outgoing_bytes)} 
+																		size="medium" 
+																		color="secondary"
+																		variant="filled"
+																		sx={{ 
+																			fontWeight: 600,
+																			borderRadius: 3
+																		}}
+																	/>
+																	{day.total_duration > 0 && (
+																		<Chip 
+																			label={formatDuration(day.total_duration)} 
+																			size="medium" 
+																			color="info"
+																			variant="filled"
+																			sx={{ 
+																				fontWeight: 600,
+																				borderRadius: 3
+																			}}
+																		/>
+																	)}
+																</Box>
+															</Box>
+														}
+														secondary={
+															<Box sx={{ mt: 2 }}>
+																<Grid container spacing={2}>
+																	<Grid item xs={6} sm={3}>
+																		<Box sx={{ 
+																			display: 'flex', 
+																			alignItems: 'center', 
+																			gap: 1.5,
+																			p: 2,
+																			bgcolor: 'primary.50',
+																			borderRadius: 2,
+																			border: '1px solid',
+																			borderColor: 'primary.200'
+																		}}>
+																			<CloudDownload sx={{ fontSize: 20, color: 'primary.main' }} />
+																			<Box>
+																				<Typography variant="caption" color="text.secondary" sx={{
+																					fontSize: '0.75rem',
+																					fontWeight: 500
+																				}}>
+																					Downloaded
+																				</Typography>
+																				<Typography variant="body2" fontWeight="bold" sx={{
+																					fontSize: { xs: '0.875rem', md: '1rem' },
+																					color: 'primary.main'
+																				}}>
+																					{formatBytes(day.total_incoming_bytes)}
+																				</Typography>
+																			</Box>
+																		</Box>
+																	</Grid>
+																	<Grid item xs={6} sm={3}>
+																		<Box sx={{ 
+																			display: 'flex', 
+																			alignItems: 'center', 
+																			gap: 1.5,
+																			p: 2,
+																			bgcolor: 'secondary.50',
+																			borderRadius: 2,
+																			border: '1px solid',
+																			borderColor: 'secondary.200'
+																		}}>
+																			<CloudUpload sx={{ fontSize: 20, color: 'secondary.main' }} />
+																			<Box>
+																				<Typography variant="caption" color="text.secondary" sx={{
+																					fontSize: '0.75rem',
+																					fontWeight: 500
+																				}}>
+																					Uploaded
+																				</Typography>
+																				<Typography variant="body2" fontWeight="bold" sx={{
+																					fontSize: { xs: '0.875rem', md: '1rem' },
+																					color: 'secondary.main'
+																				}}>
+																					{formatBytes(day.total_outgoing_bytes)}
+																				</Typography>
+																			</Box>
+																		</Box>
+																	</Grid>
+																	<Grid item xs={6} sm={3}>
+																		<Box sx={{ 
+																			display: 'flex', 
+																			alignItems: 'center', 
+																			gap: 1.5,
+																			p: 2,
+																			bgcolor: 'success.50',
+																			borderRadius: 2,
+																			border: '1px solid',
+																			borderColor: 'success.200'
+																		}}>
+																			<Computer sx={{ fontSize: 20, color: 'success.main' }} />
+																			<Box>
+																				<Typography variant="caption" color="text.secondary" sx={{
+																					fontSize: '0.75rem',
+																					fontWeight: 500
+																				}}>
+																					Hosts
+																				</Typography>
+																				<Typography variant="body2" fontWeight="bold" sx={{
+																					fontSize: { xs: '0.875rem', md: '1rem' },
+																					color: 'success.main'
+																				}}>
+																					{day.unique_hosts}
+																				</Typography>
+																			</Box>
+																		</Box>
+																	</Grid>
+																	<Grid item xs={6} sm={3}>
+																		<Box sx={{ 
+																			display: 'flex', 
+																			alignItems: 'center', 
+																			gap: 1.5,
+																			p: 2,
+																			bgcolor: 'warning.50',
+																			borderRadius: 2,
+																			border: '1px solid',
+																			borderColor: 'warning.200'
+																		}}>
+																			<TrendingUp sx={{ fontSize: 20, color: 'warning.main' }} />
+																			<Box>
+																				<Typography variant="caption" color="text.secondary" sx={{
+																					fontSize: '0.75rem',
+																					fontWeight: 500
+																				}}>
+																					Services
+																				</Typography>
+																				<Typography variant="body2" fontWeight="bold" sx={{
+																					fontSize: { xs: '0.875rem', md: '1rem' },
+																					color: 'warning.main'
+																				}}>
+																					{day.unique_services}
+																				</Typography>
+																			</Box>
+																		</Box>
+																	</Grid>
+																</Grid>
+															</Box>
+														}
+													/>
+												</ListItem>
+											</Card>
+										</React.Fragment>
+									))}
+								</List>
+							</Box>
 						</CardContent>
 					</Card>
 				)}
