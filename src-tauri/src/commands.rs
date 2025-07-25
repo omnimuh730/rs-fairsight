@@ -108,7 +108,25 @@ pub fn is_network_monitoring(adapter_name: String) -> bool {
 
 #[tauri::command]
 pub fn get_network_history(start_date: String, end_date: String) -> Result<Vec<DailyNetworkSummary>, String> {
-    NETWORK_STORAGE.get_date_range_data(&start_date, &end_date)
+    match NETWORK_STORAGE.get_date_range_data(&start_date, &end_date) {
+        Ok(data) => {
+            println!("📊 Network history requested: {} to {}", start_date, end_date);
+            println!("📊 Returning {} daily summaries", data.len());
+            for (i, summary) in data.iter().enumerate() {
+                println!("📊 Day {}: {} sessions, Total: ↓{}KB ↑{}KB", 
+                    i + 1, 
+                    summary.sessions.len(),
+                    summary.total_incoming_bytes / 1024,
+                    summary.total_outgoing_bytes / 1024
+                );
+            }
+            Ok(data)
+        }
+        Err(e) => {
+            println!("❌ Failed to get network history: {}", e);
+            Err(e)
+        }
+    }
 }
 
 #[tauri::command]

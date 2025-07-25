@@ -146,11 +146,39 @@ impl TrafficMonitor {
         }
         *is_running = false;
 
-        // Note: We don't save a final session here anymore because we're already 
-        // saving incremental sessions every 8 seconds during monitoring.
-        // The last incremental save will capture the final data.
-        
-        println!("Stopped monitoring - final data already saved through periodic saves");
+        // Save final session with remaining data before stopping
+        if let Some(start_time) = *self.session_start_time.read() {
+            let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
+            let current_stats = self.stats.read();
+            let config = self.config.read();
+            
+            // Save final session if there's any data
+            if current_stats.total_incoming_bytes > 0 || current_stats.total_outgoing_bytes > 0 {
+                let final_session = NetworkSession {
+                    adapter_name: config.adapter_name.clone(),
+                    start_time,
+                    end_time: Some(now),
+                    total_incoming_bytes: current_stats.total_incoming_bytes,
+                    total_outgoing_bytes: current_stats.total_outgoing_bytes,
+                    total_incoming_packets: current_stats.total_incoming_packets,
+                    total_outgoing_packets: current_stats.total_outgoing_packets,
+                    duration: now - start_time,
+                    traffic_data: current_stats.traffic_rate.clone(),
+                    top_hosts: current_stats.network_hosts.iter().take(10).cloned().collect(),
+                    top_services: current_stats.services.iter().take(10).cloned().collect(),
+                };
+
+                if let Err(e) = NETWORK_STORAGE.save_session(&final_session) {
+                    eprintln!("Failed to save final network session: {}", e);
+                } else {
+                    println!("Final network session saved on stop - Total: ↓{}KB ↑{}KB", 
+                        current_stats.total_incoming_bytes / 1024, 
+                        current_stats.total_outgoing_bytes / 1024);
+                }
+            }
+        }
+
+        println!("Stopped monitoring - final session saved");
 
         // Reset session start time
         *self.session_start_time.write() = None;
@@ -729,6 +757,11 @@ impl TrafficMonitor {
         let incremental_outgoing = current_stats.total_outgoing_bytes - *last_save_outgoing_bytes;
         let incremental_incoming_packets = current_stats.total_incoming_packets - *last_save_incoming_packets;
         let incremental_outgoing_packets = current_stats.total_outgoing_packets - *last_save_outgoing_packets;
+        
+        // Only save if there's actual incremental traffic data
+        if incremental_incoming == 0 && incremental_outgoing == 0 {
+            return;
+        }
         
         let session = NetworkSession {
             adapter_name: adapter_name.to_string(),
