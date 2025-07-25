@@ -86,14 +86,14 @@ const NetworkHostsTable = ({ hosts }) => {
 									<TableCell>
 										{host.country && host.country_code && host.country_code !== 'XX' ? (
 											<Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-												<span style={{ fontSize: '16px' }}>{getCountryFlag(host.country_code)}</span>
+												{getCountryFlag(host.country_code)}
 												<Typography variant="body2">
 													{getCountryName(host.country_code) || host.country}
 												</Typography>
 											</Box>
 										) : host.country_code === 'XX' ? (
 											<Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-												<span style={{ fontSize: '16px' }}>🏠</span>
+												{getCountryFlag('XX')}
 												<Typography variant="body2">
 													{host.country || 'Local Network'}
 												</Typography>

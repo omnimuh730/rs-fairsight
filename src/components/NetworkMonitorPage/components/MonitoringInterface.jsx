@@ -16,82 +16,82 @@ const MonitoringInterface = ({ adapter, stats }) => {
 	}
 
 	return (
-		<Grid container spacing={3}>
-			{/* Stats Cards */}
-			<Grid item xs={12}>
-				<Grid container spacing={2}>
-					<Grid item xs={12} sm={6} md={3}>
-						<Card>
-							<CardContent>
-								<Typography variant="h6" color="primary">
-									↓ {formatBytes(stats.total_incoming_bytes)}
-								</Typography>
-								<Typography variant="body2" color="text.secondary">
-									Incoming
-								</Typography>
-							</CardContent>
-						</Card>
+		<Box sx={{ flexGrow: 1 }}>
+			<Grid container spacing={2}>
+				<Grid size={{ md: 12, lg: 8 }}>
+					<Grid container spacing={2} sx={{ height: '100%' }}>
+						<Grid size={{ md: 12, lg: 6 }}>
+							<Card sx={{ height: '100%' }}>
+								<CardContent>
+									<Typography variant="h6" color="primary">
+										↓ {formatBytes(stats.total_incoming_bytes)}
+									</Typography>
+									<Typography variant="body2" color="text.secondary">
+										Incoming
+									</Typography>
+								</CardContent>
+							</Card>
+						</Grid>
+						<Grid size={{ md: 12, lg: 6 }}>
+							<Card sx={{ height: '100%' }}>
+								<CardContent>
+									<Typography variant="h6" color="secondary">
+										↑ {formatBytes(stats.total_outgoing_bytes)}
+									</Typography>
+									<Typography variant="body2" color="text.secondary">
+										Outgoing
+									</Typography>
+								</CardContent>
+							</Card>
+						</Grid>
+						<Grid size={{ md: 12, lg: 6 }}>
+							<Card sx={{ height: '100%' }}>
+								<CardContent>
+									<Typography variant="h6">
+										{stats.network_hosts.length}
+									</Typography>
+									<Typography variant="body2" color="text.secondary">
+										Hosts
+									</Typography>
+								</CardContent>
+							</Card>
+						</Grid>
+						<Grid size={{ md: 12, lg: 6 }}>
+							<Card sx={{ height: '100%' }}>
+								<CardContent>
+									<Typography variant="h6">
+										{formatDuration(stats.monitoring_duration)}
+									</Typography>
+									<Typography variant="body2" color="text.secondary">
+										Duration
+									</Typography>
+								</CardContent>
+							</Card>
+						</Grid>
 					</Grid>
-					<Grid item xs={12} sm={6} md={3}>
-						<Card>
-							<CardContent>
-								<Typography variant="h6" color="secondary">
-									↑ {formatBytes(stats.total_outgoing_bytes)}
-								</Typography>
-								<Typography variant="body2" color="text.secondary">
-									Outgoing
-								</Typography>
-							</CardContent>
-						</Card>
-					</Grid>
-					<Grid item xs={12} sm={6} md={3}>
-						<Card>
-							<CardContent>
-								<Typography variant="h6">
-									{stats.network_hosts.length}
-								</Typography>
-								<Typography variant="body2" color="text.secondary">
-									Hosts
-								</Typography>
-							</CardContent>
-						</Card>
-					</Grid>
-					<Grid item xs={12} sm={6} md={3}>
-						<Card>
-							<CardContent>
-								<Typography variant="h6">
-									{formatDuration(stats.monitoring_duration)}
-								</Typography>
-								<Typography variant="body2" color="text.secondary">
-									Duration
-								</Typography>
-							</CardContent>
-						</Card>
-					</Grid>
+				</Grid>
+				<Grid size={{ md: 12, lg: 4 }}>
+					<Card sx={{ height: '100%' }}>
+						<CardContent>
+							<Typography variant="h6" gutterBottom>
+								Traffic Rate
+							</Typography>
+							<TrafficChart data={stats.traffic_rate} />
+						</CardContent>
+					</Card>
 				</Grid>
 			</Grid>
 
-			{/* Traffic Rate Chart */}
-			<Grid item xs={12}>
-				<Card>
-					<CardContent>
-						<Typography variant="h6" gutterBottom>
-							Traffic Rate
-						</Typography>
-						<TrafficChart data={stats.traffic_rate} />
-					</CardContent>
-				</Card>
-			</Grid>
-
 			{/* Network Hosts and Services */}
-			<Grid item xs={12}>
+			< Grid item xs={12} >
 				<NetworkHostsTable hosts={stats.network_hosts} />
-			</Grid>
+			</Grid >
 
-			<Grid item xs={12}>
+			<Grid item xs={12} sx={{ mt: 2 }}>
 				<ServicesList services={stats.services} />
 			</Grid>
-		</Grid>
+
+		</Box >
 	);
 };
 

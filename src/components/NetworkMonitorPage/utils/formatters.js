@@ -15,25 +15,51 @@ export const formatDuration = (seconds) => {
 	return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
 };
 
+// Dynamic import helper for country flags
+const getCountryFlagUrl = (countryCode) => {
+	try {
+		// Use dynamic import with Vite's explicit URL handling
+		return new URL(`../../../assets/country_flags/${countryCode.toLowerCase()}.svg`, import.meta.url).href;
+	} catch (error) {
+		// Fallback to unknown flag
+		try {
+			return new URL(`../../../assets/country_flags/zz-unknown.svg`, import.meta.url).href;
+		} catch (fallbackError) {
+			return ''; // Return empty string if all fails
+		}
+	}
+};
+
 export const getCountryFlag = (countryCode) => {
-	if (!countryCode) return '🌐';
+	if (!countryCode) {
+		const unknownUrl = getCountryFlagUrl('zz-unknown');
+		return React.createElement('img', {
+			src: unknownUrl,
+			alt: 'Unknown',
+			style: { width: '16px', height: '12px' }
+		});
+	}
 	
-	// For now, let's use flag emojis which work reliably
-	const flagEmojis = {
-		'US': '🇺🇸', 'CA': '🇨🇦', 'GB': '🇬🇧', 'DE': '🇩🇪', 'FR': '🇫🇷',
-		'JP': '🇯🇵', 'CN': '🇨🇳', 'AU': '🇦🇺', 'BR': '🇧🇷', 'IN': '🇮🇳',
-		'RU': '🇷🇺', 'IT': '🇮🇹', 'ES': '🇪🇸', 'NL': '🇳🇱', 'SE': '🇸🇪',
-		'NO': '🇳🇴', 'DK': '🇩🇰', 'FI': '🇫🇮', 'CH': '🇨🇭', 'AT': '🇦🇹',
-		'BE': '🇧🇪', 'IE': '🇮🇪', 'PT': '🇵🇹', 'PL': '🇵🇱', 'CZ': '🇨🇿',
-		'HU': '🇭🇺', 'GR': '🇬🇷', 'TR': '🇹🇷', 'IL': '🇮🇱', 'ZA': '🇿🇦',
-		'EG': '🇪🇬', 'AE': '🇦🇪', 'SA': '🇸🇦', 'KR': '🇰🇷', 'TH': '🇹🇭',
-		'SG': '🇸🇬', 'MY': '🇲🇾', 'ID': '🇮🇩', 'PH': '🇵🇭', 'VN': '🇻🇳',
-		'MX': '🇲🇽', 'AR': '🇦🇷', 'CL': '🇨🇱', 'CO': '🇨🇴', 'PE': '🇵🇪',
-		'VE': '🇻🇪', 'UY': '🇺🇾', 'NZ': '🇳🇿', 'SK': '🇸🇰', 'SI': '🇸�',
-		'HR': '🇭🇷', 'NG': '🇳🇬', 'KE': '🇰🇪'
+	const code = countryCode.toLowerCase();
+	
+	// Handle special cases for your available assets
+	const flagMap = {
+		'xx': 'zz-home', // Local network (without .svg extension)
+		'us': code === 'usa' ? 'usa' : 'us'
 	};
 	
-	return flagEmojis[countryCode?.toUpperCase()] || '🌐';
+	const flagCode = flagMap[code] || code;
+	const flagUrl = getCountryFlagUrl(flagCode);
+	
+	return React.createElement('img', {
+		src: flagUrl,
+		alt: `${countryCode} Flag`,
+		style: { width: '16px', height: '12px' },
+		onError: (e) => {
+			// Fallback to unknown flag if the specific flag doesn't exist
+			e.target.src = getCountryFlagUrl('zz-unknown');
+		}
+	});
 };
 
 export const formatDomain = (hostname, domain) => {
