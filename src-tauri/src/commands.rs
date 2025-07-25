@@ -1,6 +1,7 @@
 use crate::time_tracker::aggregate_log_results;
 use crate::health_monitor::HEALTH_MONITOR;
 use crate::logger::{get_logs, get_recent_logs, clear_logs, LogEntry};
+use crate::network_monitor::{get_network_adapters, NetworkAdapter};
 
 #[tauri::command]
 pub fn greet(name: &str) -> String {
@@ -68,4 +69,9 @@ pub fn get_recent_logs_limited(count: usize) -> Vec<LogEntry> {
 pub fn clear_all_logs() -> String {
     clear_logs();
     "Logs cleared successfully".to_string()
+}
+
+#[tauri::command]
+pub fn get_network_adapters_command() -> Result<Vec<NetworkAdapter>, String> {
+    get_network_adapters()
 }

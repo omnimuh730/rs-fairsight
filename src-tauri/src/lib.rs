@@ -10,6 +10,7 @@ pub mod app_state;
 pub mod ui_setup;
 pub mod health_monitor;
 pub mod logger;
+pub mod network_monitor;
 
 #[cfg(target_os = "macos")]
 pub mod macos_utils;

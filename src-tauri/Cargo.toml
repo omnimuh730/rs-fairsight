@@ -47,3 +47,4 @@ once_cell = "1.18"
 axum = "0.8.3"
 tower-http = { version = "0.5", features = ["cors"] }
 tokio = { version = "1.44.1", features = ["full"] }
+pcap = "2.3.0"  # For network interface discovery

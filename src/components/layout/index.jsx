@@ -15,6 +15,7 @@ import {
     Timeline,
     AutoGraph,
     Monitor,
+    NetworkCheck,
     Menu
 } from '@mui/icons-material'
 
@@ -22,6 +23,7 @@ import ShowTodayCard from '../ShowTodayPage/ShowToday';
 import WeeklyActivityPage from '../WeeklyActivityPage';
 import ChangeLogsPage from '../ChangeLogsPage';
 import MonitorPage from '../MonitorPage';
+import NetworkMonitorPage from '../pages/NetworkMonitorPage';
 
 const drawerWidth = 240;
 
@@ -31,6 +33,7 @@ const listItems = [
   { text: 'Weekly Activity', icon: <Timeline />, path: '/starred' },
   { text: 'Changelogs', icon: <AutoGraph />, path: '/sent' },
   { text: 'System Monitor', icon: <Monitor />, path: '/monitor' },
+  { text: 'Network Monitor', icon: <NetworkCheck />, path: '/network' },
 ];
 
 function ResponsiveDrawer(props) {
@@ -142,6 +145,7 @@ function ResponsiveDrawer(props) {
           <Route path="/starred" element={<WeeklyActivityPage />} />
           <Route path="/sent" element={<ChangeLogsPage />} />
           <Route path="/monitor" element={<MonitorPage />} />
+          <Route path="/network" element={<NetworkMonitorPage />} />
           <Route path="*" element={<Navigate to="/inbox" />} /> {/* Default route */}
         </Routes>
         </Box>
