@@ -39,15 +39,29 @@ export const useNetworkMonitoring = (adapters) => {
 	const [networkStats, setNetworkStats] = useState({});
 	const pollIntervalRef = useRef(null);
 
-	// Initialize monitoring states
+	// Initialize monitoring states and auto-start monitoring for all adapters
 	useEffect(() => {
-		const initializeMonitoringStates = async () => {
+		const initializeAndStartMonitoring = async () => {
 			const states = {};
 			for (const adapter of adapters) {
 				try {
+					// Check if already monitoring
 					const isMonitoring = await invoke('is_network_monitoring', { adapterName: adapter.name });
-					states[adapter.name] = isMonitoring;
+					if (!isMonitoring) {
+						// Auto-start monitoring for this adapter
+						try {
+							await invoke('start_network_monitoring', { adapterName: adapter.name });
+							states[adapter.name] = true;
+							console.log(`Auto-started monitoring for adapter: ${adapter.name}`);
+						} catch (startErr) {
+							console.warn(`Failed to auto-start monitoring for ${adapter.name}:`, startErr);
+							states[adapter.name] = false;
+						}
+					} else {
+						states[adapter.name] = true;
+					}
 				} catch (err) {
+					console.warn(`Failed to check monitoring state for ${adapter.name}:`, err);
 					states[adapter.name] = false;
 				}
 			}
@@ -55,7 +69,7 @@ export const useNetworkMonitoring = (adapters) => {
 		};
 
 		if (adapters.length > 0) {
-			initializeMonitoringStates();
+			initializeAndStartMonitoring();
 		}
 	}, [adapters]);
 

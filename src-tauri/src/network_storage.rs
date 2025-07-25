@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{PathBuf};
 use chrono::{DateTime, Utc, NaiveDate, TimeZone};
-use crate::traffic_monitor::{MonitoringStats, TrafficData, NetworkHost, ServiceInfo};
+use crate::traffic_monitor::{TrafficData, NetworkHost, ServiceInfo};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NetworkSession {

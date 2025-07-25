@@ -26,6 +26,124 @@ export const getCountryFlag = (countryCode) => {
 	}
 };
 
+export const formatDomain = (hostname, domain) => {
+	if (domain && domain !== hostname) {
+		return domain;
+	}
+	
+	if (hostname) {
+		// Extract domain from hostname if not provided separately
+		const parts = hostname.split('.');
+		if (parts.length >= 2) {
+			return `${parts[parts.length - 2]}.${parts[parts.length - 1]}`;
+		}
+		return hostname;
+	}
+	
+	return null;
+};
+
+export const formatASN = (asn) => {
+	if (!asn) return null;
+	
+	// If ASN contains organization info, extract just the AS number and org name
+	if (asn.includes(' ')) {
+		const parts = asn.split(' ');
+		const asNumber = parts[0];
+		const orgName = parts.slice(1).join(' ');
+		
+		// Truncate org name if too long
+		if (orgName.length > 20) {
+			return `${asNumber} ${orgName.substring(0, 17)}...`;
+		}
+		return asn;
+	}
+	
+	return asn;
+};
+
+export const getHostTypeIcon = (ip, hostname, domain) => {
+	// Determine what type of host this is based on available info
+	if (domain) {
+		if (domain.includes('google.com') || domain.includes('googleapis.com')) return '🔍';
+		if (domain.includes('facebook.com') || domain.includes('meta.com')) return '📘';
+		if (domain.includes('microsoft.com') || domain.includes('windows.com')) return '🪟';
+		if (domain.includes('amazon.com') || domain.includes('amazonaws.com')) return '📦';
+		if (domain.includes('cloudflare.com')) return '☁️';
+		if (domain.includes('cdn')) return '🚀';
+		return '🌐';
+	}
+	
+	if (hostname) {
+		return '🖥️';
+	}
+	
+	// Check if it's a local IP
+	if (ip.startsWith('192.168.') || ip.startsWith('10.') || ip.startsWith('172.')) {
+		return '🏠';
+	}
+	
+	return '🌍';
+};
+
+export const getCountryName = (countryCode) => {
+	const countries = {
+		'US': 'United States',
+		'CA': 'Canada',
+		'GB': 'United Kingdom',
+		'DE': 'Germany',
+		'FR': 'France',
+		'JP': 'Japan',
+		'AU': 'Australia',
+		'CN': 'China',
+		'IN': 'India',
+		'BR': 'Brazil',
+		'RU': 'Russia',
+		'KR': 'South Korea',
+		'NL': 'Netherlands',
+		'SE': 'Sweden',
+		'NO': 'Norway',
+		'DK': 'Denmark',
+		'FI': 'Finland',
+		'CH': 'Switzerland',
+		'AT': 'Austria',
+		'BE': 'Belgium',
+		'ES': 'Spain',
+		'IT': 'Italy',
+		'PT': 'Portugal',
+		'IE': 'Ireland',
+		'PL': 'Poland',
+		'CZ': 'Czech Republic',
+		'HU': 'Hungary',
+		'SK': 'Slovakia',
+		'SI': 'Slovenia',
+		'HR': 'Croatia',
+		'GR': 'Greece',
+		'TR': 'Turkey',
+		'IL': 'Israel',
+		'AE': 'UAE',
+		'SA': 'Saudi Arabia',
+		'EG': 'Egypt',
+		'ZA': 'South Africa',
+		'NG': 'Nigeria',
+		'KE': 'Kenya',
+		'MX': 'Mexico',
+		'AR': 'Argentina',
+		'CL': 'Chile',
+		'CO': 'Colombia',
+		'PE': 'Peru',
+		'TH': 'Thailand',
+		'VN': 'Vietnam',
+		'ID': 'Indonesia',
+		'MY': 'Malaysia',
+		'SG': 'Singapore',
+		'PH': 'Philippines',
+		'NZ': 'New Zealand'
+	};
+	
+	return countries[countryCode?.toUpperCase()] || countryCode;
+};
+
 export const getShortAdapterName = (adapter) => {
 	// Extract a short name from the adapter name
 	let shortName = adapter.name;
@@ -52,6 +170,9 @@ export const getShortAdapterName = (adapter) => {
 			if (adapter.description.includes('IPv6')) return 'WAN6';
 			if (adapter.description.includes('IP')) return 'WAN';
 			return 'WAN';
+		}
+		if (adapter.description.toLowerCase().includes('openvpn') || adapter.description.toLowerCase().includes('tap')) {
+			return 'VPN';
 		}
 	}
 	
