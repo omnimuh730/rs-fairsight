@@ -202,12 +202,12 @@ impl TrafficMonitor {
             if let Some(device) = devices.into_iter().find(|d| d.name == adapter_name) {
                 match Capture::from_device(device) {
                     Ok(inactive) => {
-                        match inactive
+                match inactive
                             .promisc(true)
-                            .buffer_size(2_000_000)  // 2MB buffer like sniffnet
-                            .snaplen(200)            // Limit packet slice
+                            .buffer_size(8_000_000)  // Increase to 8MB buffer for better capture
+                            .snaplen(200)            // Limit packet slice but count full packet size
                             .immediate_mode(true)    // Parse packets ASAP
-                            .timeout(150)            // Timeout for UI updates
+                            .timeout(100)            // Shorter timeout for more responsive capture
                             .open() {
                             Ok(cap) => {
                                 capture_opt = Some(cap);
@@ -238,8 +238,14 @@ impl TrafficMonitor {
         let mut last_save_outgoing_packets = 0u64;
 
         if let Some(mut capture) = capture_opt {
-            // Real packet capture mode
+            // Real packet capture mode - continuous capture like sniffnet
+            println!("Starting continuous packet capture mode for {}", adapter_name);
+            
             loop {
+                if !*is_running.read() {
+                    break;
+                }
+                
                 tokio::select! {
                     _ = save_interval.tick() => {
                         Self::save_periodic_session(
@@ -249,28 +255,35 @@ impl TrafficMonitor {
                             &traffic_history
                         ).await;
                     }
-                    _ = tokio::time::sleep(Duration::from_millis(10)) => {
-                        if !*is_running.read() {
-                            break;
-                        }
-                        
-                        // Try to get next packet (non-blocking)
-                        match capture.next_packet() {
-                            Ok(packet) => {
-                                Self::process_real_packet(
-                                    packet, &hosts, &services, &traffic_history, 
-                                    &stats, start_time
-                                ).await;
-                            }
-                            Err(pcap::Error::TimeoutExpired) => {
-                                // Normal timeout, continue
-                                continue;
-                            }
-                            Err(e) => {
-                                eprintln!("Packet capture error: {}. Switching to simulation mode.", e);
+                    _ = async {
+                        // Continuous packet capture loop without delays
+                        loop {
+                            if !*is_running.read() {
                                 break;
                             }
+                            
+                            match capture.next_packet() {
+                                Ok(packet) => {
+                                    Self::process_real_packet(
+                                        packet, &hosts, &services, &traffic_history, 
+                                        &stats, start_time
+                                    ).await;
+                                    // Continue immediately to next packet without delay
+                                }
+                                Err(pcap::Error::TimeoutExpired) => {
+                                    // Normal timeout, yield control briefly then continue
+                                    tokio::task::yield_now().await;
+                                    continue;
+                                }
+                                Err(e) => {
+                                    eprintln!("Packet capture error: {}. Switching to simulation mode.", e);
+                                    return; // Exit packet capture loop
+                                }
+                            }
                         }
+                    } => {
+                        // Packet capture loop ended, break main loop
+                        break;
                     }
                 }
             }
@@ -307,7 +320,8 @@ impl TrafficMonitor {
         stats: &Arc<RwLock<MonitoringStats>>,
         start_time: u64,
     ) {
-        let packet_size = packet.data.len() as u64;
+        // Use the original packet length from header, not the captured data length
+        let packet_size = packet.header.len as u64;  // This is the actual packet size
         let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
 
         // Parse packet headers
