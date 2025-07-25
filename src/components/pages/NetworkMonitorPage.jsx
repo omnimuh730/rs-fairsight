@@ -745,7 +745,7 @@ const MonitoringInterface = ({ adapter, stats }) => {
 			</Grid>
 
 			{/* Network Hosts and Services */}
-			<Grid item xs={12} md={8}>
+			<Grid item xs={12}>
 				<Card>
 					<CardContent>
 						<Typography variant="h6" gutterBottom>
@@ -801,7 +801,7 @@ const MonitoringInterface = ({ adapter, stats }) => {
 				</Card>
 			</Grid>
 
-			<Grid item xs={12} md={4}>
+			<Grid item xs={12}>
 				<Card>
 					<CardContent>
 						<Typography variant="h6" gutterBottom>

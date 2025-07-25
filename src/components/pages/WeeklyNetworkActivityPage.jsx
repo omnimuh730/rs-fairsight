@@ -531,7 +531,6 @@ const WeeklyNetworkActivityPage = () => {
 						</Grid>
 					</CardContent>
 				</Card>
-
 				{/* Charts */}
 				<Card sx={{ 
 					mb: 4,
@@ -546,20 +545,24 @@ const WeeklyNetworkActivityPage = () => {
 								Analytics & Trends
 							</Typography>
 						</Box>
-						<Grid container spacing={3}>
+						{/* First Row - 2 Charts */}
+						<Grid container spacing={0} sx={{ mb: 0 }}>
 							{/* Daily Traffic Chart */}
-							<Grid item xs={12} lg={8}>
+							<Grid item xs={12} md={6} sx={{ pr: { md: 1 } }}>
 								<Card sx={{ 
-									height: 500, 
+									height: { xs: 400, md: 450 }, 
 									boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
 									borderRadius: 2,
-									border: '1px solid rgba(0,0,0,0.08)'
+									border: '1px solid rgba(0,0,0,0.08)',
+									display: 'flex',
+									flexDirection: 'column',
+									m: 0
 								}}>
-									<CardContent sx={{ p: 3, height: '100%' }}>
-										<Typography variant="h6" gutterBottom sx={{ fontWeight: 600, mb: 3 }}>
+									<CardContent sx={{ p: 3, height: '100%', display: 'flex', flexDirection: 'column', width: '100%' }}>
+										<Typography variant="h6" gutterBottom sx={{ fontWeight: 600, mb: 2, fontSize: { xs: '1rem', md: '1.25rem' } }}>
 											Daily Network Traffic (MB)
 										</Typography>
-										<Box sx={{ height: 400 }}>
+										<Box sx={{ height: { xs: 300, md: 350 }, flex: 1 }}>
 											<ResponsiveContainer width="100%" height="100%">
 												<LineChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
 													<CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
@@ -610,18 +613,21 @@ const WeeklyNetworkActivityPage = () => {
 							</Grid>
 
 							{/* Traffic Distribution */}
-							<Grid item xs={12} lg={4}>
+							<Grid item xs={12} md={6} sx={{ pl: { md: 1 } }}>
 								<Card sx={{ 
-									height: 500, 
+									height: { xs: 400, md: 450 }, 
 									boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
 									borderRadius: 2,
-									border: '1px solid rgba(0,0,0,0.08)'
+									border: '1px solid rgba(0,0,0,0.08)',
+									display: 'flex',
+									flexDirection: 'column',
+									m: 0
 								}}>
-									<CardContent sx={{ p: 3, height: '100%' }}>
-										<Typography variant="h6" gutterBottom sx={{ fontWeight: 600, mb: 3 }}>
+									<CardContent sx={{ p: 3, height: '100%', display: 'flex', flexDirection: 'column' }}>
+										<Typography variant="h6" gutterBottom sx={{ fontWeight: 600, mb: 2, fontSize: { xs: '1rem', md: '1.25rem' } }}>
 											Traffic Distribution
 										</Typography>
-										<Box sx={{ height: 400 }}>
+										<Box sx={{ height: { xs: 300, md: 350 }, flex: 1 }}>
 											<ResponsiveContainer width="100%" height="100%">
 												<PieChart>
 													<Pie
@@ -653,20 +659,26 @@ const WeeklyNetworkActivityPage = () => {
 									</CardContent>
 								</Card>
 							</Grid>
+						</Grid>
 
+						{/* Second Row - 2 Charts */}
+						<Grid container spacing={0} sx={{ mt: 2 }}>
 							{/* Daily Sessions */}
-							<Grid item xs={12} lg={6}>
+							<Grid item xs={12} md={6} sx={{ pr: { md: 1 } }}>
 								<Card sx={{ 
-									height: 500, 
+									height: { xs: 400, md: 450 }, 
 									boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
 									borderRadius: 2,
-									border: '1px solid rgba(0,0,0,0.08)'
+									border: '1px solid rgba(0,0,0,0.08)',
+									display: 'flex',
+									flexDirection: 'column',
+									m: 0
 								}}>
-									<CardContent sx={{ p: 3, height: '100%' }}>
-										<Typography variant="h6" gutterBottom sx={{ fontWeight: 600, mb: 3 }}>
+									<CardContent sx={{ p: 3, height: '100%', display: 'flex', flexDirection: 'column' }}>
+										<Typography variant="h6" gutterBottom sx={{ fontWeight: 600, mb: 2, fontSize: { xs: '1rem', md: '1.25rem' } }}>
 											Daily Sessions & Duration
 										</Typography>
-										<Box sx={{ height: 400 }}>
+										<Box sx={{ height: { xs: 300, md: 350 }, flex: 1 }}>
 											<ResponsiveContainer width="100%" height="100%">
 												<BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
 													<CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
@@ -708,18 +720,21 @@ const WeeklyNetworkActivityPage = () => {
 							</Grid>
 
 							{/* Hosts & Services */}
-							<Grid item xs={12} lg={6}>
+							<Grid item xs={12} md={6} sx={{ pl: { md: 1 } }}>
 								<Card sx={{ 
-									height: 500, 
+									height: { xs: 400, md: 450 }, 
 									boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
 									borderRadius: 2,
-									border: '1px solid rgba(0,0,0,0.08)'
+									border: '1px solid rgba(0,0,0,0.08)',
+									display: 'flex',
+									flexDirection: 'column',
+									m: 0
 								}}>
-									<CardContent sx={{ p: 3, height: '100%' }}>
-										<Typography variant="h6" gutterBottom sx={{ fontWeight: 600, mb: 3 }}>
+									<CardContent sx={{ p: 3, height: '100%', display: 'flex', flexDirection: 'column' }}>
+										<Typography variant="h6" gutterBottom sx={{ fontWeight: 600, mb: 2, fontSize: { xs: '1rem', md: '1.25rem' } }}>
 											Daily Hosts & Services
 										</Typography>
-										<Box sx={{ height: 400 }}>
+										<Box sx={{ height: { xs: 300, md: 350 }, flex: 1 }}>
 											<ResponsiveContainer width="100%" height="100%">
 												<BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
 													<CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
