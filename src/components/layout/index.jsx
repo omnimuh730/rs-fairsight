@@ -24,7 +24,7 @@ import ShowTodayCard from '../ShowTodayPage/ShowToday';
 import WeeklyActivityPage from '../WeeklyActivityPage';
 import ChangeLogsPage from '../ChangeLogsPage';
 import MonitorPage from '../MonitorPage';
-import NetworkMonitorPage from '../pages/NetworkMonitorPage';
+import NetworkMonitorPage from '../NetworkMonitorPage';
 import WeeklyNetworkActivityPage from '../pages/WeeklyNetworkActivityPage';
 
 const drawerWidth = 240;
