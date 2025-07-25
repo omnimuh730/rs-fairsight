@@ -1,6 +1,6 @@
 import React from 'react';
-import { Typography, Box, Button, Alert } from '@mui/material';
-import { Computer, Wifi, WifiOff, Stop, PlayArrow } from '@mui/icons-material';
+import { Typography, Box, Button, Alert, Chip } from '@mui/material';
+import { Computer, Wifi, WifiOff, Stop, PlayArrow, CheckCircle } from '@mui/icons-material';
 import { getStatusChip } from '../utils/adapterHelpers';
 import AdapterInfo from './AdapterInfo';
 import MonitoringInterface from './MonitoringInterface';
@@ -29,30 +29,54 @@ const AdapterDetails = ({
 					 adapter.is_up ? <Wifi color="primary" /> : <WifiOff color="disabled" />}
 					{adapter.description || adapter.name}
 					{getStatusChip(adapter)}
-					<Box sx={{ ml: 'auto' }}>
+					<Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 1 }}>
 						{isMonitoring ? (
-							<Button
-								variant="contained"
-								color="error"
-								startIcon={<Stop />}
-								onClick={() => onStopMonitoring(adapter.name)}
-							>
-								Stop Monitoring
-							</Button>
+							<>
+								<Chip 
+									icon={<CheckCircle />} 
+									label="Monitoring Active" 
+									color="success" 
+									variant="outlined" 
+									size="small"
+								/>
+								<Button
+									variant="contained"
+									color="error"
+									startIcon={<Stop />}
+									onClick={() => onStopMonitoring(adapter.name)}
+								>
+									Stop Monitoring
+								</Button>
+							</>
 						) : (
-							<Button
-								variant="contained"
-								color="primary"
-								startIcon={<PlayArrow />}
-								onClick={() => onStartMonitoring(adapter.name)}
-								disabled={!adapter.is_up}
-							>
-								Start Monitoring
-							</Button>
+							<>
+								<Chip 
+									label={adapter.is_up ? "Auto-Starting..." : "Inactive"} 
+									color={adapter.is_up ? "warning" : "default"}
+									variant="outlined" 
+									size="small"
+								/>
+								<Button
+									variant="outlined"
+									color="primary"
+									startIcon={<PlayArrow />}
+									onClick={() => onStartMonitoring(adapter.name)}
+									disabled={true}  // Always disabled - monitoring auto-starts
+									sx={{ opacity: 0.6 }}
+								>
+									Auto-Started
+								</Button>
+							</>
 						)}
 					</Box>
 				</Box>
 			</Typography>
+
+			{!adapter.is_up && (
+				<Alert severity="warning" sx={{ mb: 2 }}>
+					This adapter is currently inactive. Monitoring is not available for inactive adapters.
+				</Alert>
+			)}
 
 			{!isMonitoring ? (
 				<AdapterInfo adapter={adapter} />

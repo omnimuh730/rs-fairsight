@@ -1,3 +1,5 @@
+import React from 'react';
+
 export const formatBytes = (bytes) => {
 	if (bytes === 0) return '0 B';
 	const k = 1024;
@@ -15,15 +17,23 @@ export const formatDuration = (seconds) => {
 
 export const getCountryFlag = (countryCode) => {
 	if (!countryCode) return '🌐';
-	try {
-		const codePoints = countryCode
-			.toUpperCase()
-			.split('')
-			.map(char => 127397 + char.charCodeAt());
-		return String.fromCodePoint(...codePoints);
-	} catch {
-		return '🌐';
-	}
+	
+	// For now, let's use flag emojis which work reliably
+	const flagEmojis = {
+		'US': '🇺🇸', 'CA': '🇨🇦', 'GB': '🇬🇧', 'DE': '🇩🇪', 'FR': '🇫🇷',
+		'JP': '🇯🇵', 'CN': '🇨🇳', 'AU': '🇦🇺', 'BR': '🇧🇷', 'IN': '🇮🇳',
+		'RU': '🇷🇺', 'IT': '🇮🇹', 'ES': '🇪🇸', 'NL': '🇳🇱', 'SE': '🇸🇪',
+		'NO': '🇳🇴', 'DK': '🇩🇰', 'FI': '🇫🇮', 'CH': '🇨🇭', 'AT': '🇦🇹',
+		'BE': '🇧🇪', 'IE': '🇮🇪', 'PT': '🇵🇹', 'PL': '🇵🇱', 'CZ': '🇨🇿',
+		'HU': '🇭🇺', 'GR': '🇬🇷', 'TR': '🇹🇷', 'IL': '🇮🇱', 'ZA': '🇿🇦',
+		'EG': '🇪🇬', 'AE': '🇦🇪', 'SA': '🇸🇦', 'KR': '🇰🇷', 'TH': '🇹🇭',
+		'SG': '🇸🇬', 'MY': '🇲🇾', 'ID': '🇮🇩', 'PH': '🇵🇭', 'VN': '🇻🇳',
+		'MX': '🇲🇽', 'AR': '🇦🇷', 'CL': '🇨🇱', 'CO': '🇨🇴', 'PE': '🇵🇪',
+		'VE': '🇻🇪', 'UY': '🇺🇾', 'NZ': '🇳🇿', 'SK': '🇸🇰', 'SI': '🇸�',
+		'HR': '🇭🇷', 'NG': '🇳🇬', 'KE': '🇰🇪'
+	};
+	
+	return flagEmojis[countryCode?.toUpperCase()] || '🌐';
 };
 
 export const formatDomain = (hostname, domain) => {
