@@ -119,28 +119,9 @@ export const useNetworkMonitoring = (adapters) => {
 		}
 	};
 
-	const stopMonitoring = async (adapterName) => {
-		try {
-			await invoke('stop_network_monitoring', { adapterName });
-			setMonitoringStates(prev => ({
-				...prev,
-				[adapterName]: false
-			}));
-			// Clear stats for this adapter
-			setNetworkStats(prev => {
-				const newStats = { ...prev };
-				delete newStats[adapterName];
-				return newStats;
-			});
-		} catch (err) {
-			throw new Error(`Failed to stop monitoring: ${err.toString()}`);
-		}
-	};
-
 	return {
 		monitoringStates,
 		networkStats,
-		startMonitoring,
-		stopMonitoring
+		startMonitoring
 	};
 };

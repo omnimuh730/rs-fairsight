@@ -1,16 +1,14 @@
 import React from 'react';
 import { Typography, Box, Button, Alert, Chip } from '@mui/material';
-import { Computer, Wifi, WifiOff, Stop, PlayArrow, CheckCircle } from '@mui/icons-material';
+import { Computer, Wifi, WifiOff, PlayArrow, CheckCircle } from '@mui/icons-material';
 import { getStatusChip } from '../utils/adapterHelpers';
 import AdapterInfo from './AdapterInfo';
 import MonitoringInterface from './MonitoringInterface';
 
 const AdapterDetails = ({ 
 	adapter, 
-	onSelect, 
 	isMonitoring, 
-	onStartMonitoring, 
-	onStopMonitoring, 
+	onStartMonitoring,
 	stats 
 }) => {
 	if (!adapter) {
@@ -39,14 +37,6 @@ const AdapterDetails = ({
 									variant="outlined" 
 									size="small"
 								/>
-								<Button
-									variant="contained"
-									color="error"
-									startIcon={<Stop />}
-									onClick={() => onStopMonitoring(adapter.name)}
-								>
-									Stop Monitoring
-								</Button>
 							</>
 						) : (
 							<>

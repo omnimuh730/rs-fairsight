@@ -30,7 +30,6 @@ const NetworkMonitorPage = () => {
 		monitoringStates, 
 		networkStats, 
 		startMonitoring, 
-		stopMonitoring 
 	} = useNetworkMonitoring(adapters);
 
 	const handleAdapterSelect = (adapterName) => {
@@ -47,14 +46,6 @@ const NetworkMonitorPage = () => {
 			await startMonitoring(adapterName);
 		} catch (err) {
 			console.error('Failed to start monitoring:', err);
-		}
-	};
-
-	const handleStopMonitoring = async (adapterName) => {
-		try {
-			await stopMonitoring(adapterName);
-		} catch (err) {
-			console.error('Failed to stop monitoring:', err);
 		}
 	};
 
@@ -140,10 +131,8 @@ const NetworkMonitorPage = () => {
 							) : (
 								<AdapterDetails 
 									adapter={adapters[selectedTab - 1]} 
-									onSelect={handleAdapterSelect}
 									isMonitoring={monitoringStates[adapters[selectedTab - 1]?.name] || false}
 									onStartMonitoring={handleStartMonitoring}
-									onStopMonitoring={handleStopMonitoring}
 									stats={networkStats[adapters[selectedTab - 1]?.name]}
 								/>
 							)}
