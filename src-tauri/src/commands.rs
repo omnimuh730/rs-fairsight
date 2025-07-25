@@ -2,6 +2,7 @@ use crate::time_tracker::aggregate_log_results;
 use crate::health_monitor::HEALTH_MONITOR;
 use crate::logger::{get_logs, get_recent_logs, clear_logs, LogEntry};
 use crate::network_monitor::{get_network_adapters, NetworkAdapter};
+use crate::traffic_monitor::{get_or_create_monitor, MonitoringStats};
 
 #[tauri::command]
 pub fn greet(name: &str) -> String {
@@ -74,4 +75,32 @@ pub fn clear_all_logs() -> String {
 #[tauri::command]
 pub fn get_network_adapters_command() -> Result<Vec<NetworkAdapter>, String> {
     get_network_adapters()
+}
+
+#[tauri::command]
+pub async fn start_network_monitoring(adapter_name: String) -> Result<String, String> {
+    let monitor = get_or_create_monitor(&adapter_name);
+    match monitor.start_monitoring().await {
+        Ok(_) => Ok(format!("Started monitoring adapter: {}", adapter_name)),
+        Err(e) => Err(e),
+    }
+}
+
+#[tauri::command]
+pub fn stop_network_monitoring(adapter_name: String) -> Result<String, String> {
+    let monitor = get_or_create_monitor(&adapter_name);
+    monitor.stop_monitoring();
+    Ok(format!("Stopped monitoring adapter: {}", adapter_name))
+}
+
+#[tauri::command]
+pub fn get_network_stats(adapter_name: String) -> Result<MonitoringStats, String> {
+    let monitor = get_or_create_monitor(&adapter_name);
+    Ok(monitor.get_stats())
+}
+
+#[tauri::command]
+pub fn is_network_monitoring(adapter_name: String) -> bool {
+    let monitor = get_or_create_monitor(&adapter_name);
+    monitor.is_monitoring()
 }

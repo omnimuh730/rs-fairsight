@@ -48,3 +48,5 @@ axum = "0.8.3"
 tower-http = { version = "0.5", features = ["cors"] }
 tokio = { version = "1.44.1", features = ["full"] }
 pcap = "2.3.0"  # For network interface discovery
+parking_lot = "0.12" # For better mutexes
+dashmap = "6.1"      # For concurrent hashmaps
