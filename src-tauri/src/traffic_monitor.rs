@@ -182,8 +182,8 @@ impl TrafficMonitor {
             
             // Simulate traffic data (replace with real packet capture)
             let mut rng = rand::thread_rng();
-            let incoming_bytes = rng.gen::<u32>() as u64 * 1024; // Random KB
-            let outgoing_bytes = rng.gen::<u32>() as u64 * 512;  // Random KB
+            let incoming_bytes = rng.gen_range(1024..102400) as u64; // 1KB to 100KB per second
+            let outgoing_bytes = rng.gen_range(512..51200) as u64;   // 0.5KB to 50KB per second
             let incoming_packets = incoming_bytes / 1024 + 1;
             let outgoing_packets = outgoing_bytes / 1024 + 1;
 
@@ -248,8 +248,8 @@ impl TrafficMonitor {
         let ip = ips[rng.gen_range(0..ips.len())].to_string();
         let (country, country_code) = countries[rng.gen_range(0..countries.len())];
         
-        let incoming = rng.gen::<u32>() as u64 * 1024;
-        let outgoing = rng.gen::<u32>() as u64 * 512;
+        let incoming = rng.gen_range(1024..20480) as u64; // 1KB to 20KB per host
+        let outgoing = rng.gen_range(512..10240) as u64;  // 0.5KB to 10KB per host
 
         hosts.entry(ip.clone()).and_modify(|host| {
             host.incoming_bytes += incoming;
