@@ -140,34 +140,14 @@ impl TrafficMonitor {
         }
         *is_running = false;
 
-        // Save session data to local storage
-        if let Some(start_time) = *self.session_start_time.read() {
-            let end_time = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
-            let stats = self.get_stats();
-            
-            let session = NetworkSession {
-                adapter_name: self.config.read().adapter_name.clone(),
-                start_time,
-                end_time: Some(end_time),
-                total_incoming_bytes: stats.total_incoming_bytes,
-                total_outgoing_bytes: stats.total_outgoing_bytes,
-                total_incoming_packets: stats.total_incoming_packets,
-                total_outgoing_packets: stats.total_outgoing_packets,
-                duration: end_time - start_time,
-                traffic_data: stats.traffic_rate.clone(),
-                top_hosts: stats.network_hosts.iter().take(20).cloned().collect(), // Top 20 hosts
-                top_services: stats.services.iter().take(20).cloned().collect(), // Top 20 services
-            };
+        // Note: We don't save a final session here anymore because we're already 
+        // saving incremental sessions every 8 seconds during monitoring.
+        // The last incremental save will capture the final data.
+        
+        println!("Stopped monitoring - final data already saved through periodic saves");
 
-            if let Err(e) = NETWORK_STORAGE.save_session(&session) {
-                eprintln!("Failed to save network session: {}", e);
-            } else {
-                println!("Network session saved successfully");
-            }
-
-            // Reset session start time
-            *self.session_start_time.write() = None;
-        }
+        // Reset session start time
+        *self.session_start_time.write() = None;
     }
 
     pub fn get_stats(&self) -> MonitoringStats {
@@ -215,6 +195,10 @@ impl TrafficMonitor {
         let mut save_interval = tokio::time::interval(Duration::from_secs(8)); // Save every 8 seconds
         let start_time = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
         let mut last_save_time = start_time;
+        let mut last_save_incoming_bytes = 0u64;
+        let mut last_save_outgoing_bytes = 0u64;
+        let mut last_save_incoming_packets = 0u64;
+        let mut last_save_outgoing_packets = 0u64;
 
         while *is_running.read() {
             tokio::select! {
@@ -279,14 +263,20 @@ impl TrafficMonitor {
                         stats_guard.clone()
                     };
                     
+                    // Calculate incremental bytes since last save
+                    let incremental_incoming = current_stats.total_incoming_bytes - last_save_incoming_bytes;
+                    let incremental_outgoing = current_stats.total_outgoing_bytes - last_save_outgoing_bytes;
+                    let incremental_incoming_packets = current_stats.total_incoming_packets - last_save_incoming_packets;
+                    let incremental_outgoing_packets = current_stats.total_outgoing_packets - last_save_outgoing_packets;
+                    
                     let session = NetworkSession {
                         adapter_name: adapter_name.clone(),
                         start_time: last_save_time,
                         end_time: Some(now),
-                        total_incoming_bytes: current_stats.total_incoming_bytes,
-                        total_outgoing_bytes: current_stats.total_outgoing_bytes,
-                        total_incoming_packets: current_stats.total_incoming_packets,
-                        total_outgoing_packets: current_stats.total_outgoing_packets,
+                        total_incoming_bytes: incremental_incoming,
+                        total_outgoing_bytes: incremental_outgoing,
+                        total_incoming_packets: incremental_incoming_packets,
+                        total_outgoing_packets: incremental_outgoing_packets,
                         duration: now - last_save_time,
                         traffic_data: current_stats.traffic_rate.clone(),
                         top_hosts: current_stats.network_hosts.iter().take(10).cloned().collect(),
@@ -296,10 +286,16 @@ impl TrafficMonitor {
                     if let Err(e) = NETWORK_STORAGE.save_session(&session) {
                         eprintln!("Failed to save periodic network session: {}", e);
                     } else {
-                        println!("Periodic network session saved (8 seconds)");
+                        println!("Periodic network session saved (8 seconds) - Incremental: ↓{}KB ↑{}KB", 
+                            incremental_incoming / 1024, incremental_outgoing / 1024);
                     }
                     
+                    // Update tracking variables for next save
                     last_save_time = now;
+                    last_save_incoming_bytes = current_stats.total_incoming_bytes;
+                    last_save_outgoing_bytes = current_stats.total_outgoing_bytes;
+                    last_save_incoming_packets = current_stats.total_incoming_packets;
+                    last_save_outgoing_packets = current_stats.total_outgoing_packets;
                 }
             }
         }
