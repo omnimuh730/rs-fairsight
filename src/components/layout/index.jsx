@@ -35,7 +35,7 @@ const listItems = [
   { text: 'Weekly Activity', icon: <Timeline />, path: '/starred' },
   { text: 'Changelogs', icon: <AutoGraph />, path: '/sent' },
   { text: 'System Monitor', icon: <Monitor />, path: '/monitor' },
-  { text: 'Network Monitor', icon: <NetworkCheck />, path: '/network' },
+  { text: 'Traffic Monitor', icon: <NetworkCheck />, path: '/network' },
   { text: 'Network Activity', icon: <TrendingUp />, path: '/network-weekly' },
 ];
 

@@ -143,8 +143,6 @@ fn update_track_time(current_time: u64) -> io::Result<()> {
         return Ok(());
     };
 
-    println!("message: {}", message);
-
     // Write the message using our improved atomic write function
     write_encrypted_message_to_file(&filename, &message, Some(&backup_dir))?;
 

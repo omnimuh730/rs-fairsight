@@ -1,5 +1,5 @@
 import React from 'react';
-import { Card, CardContent, Typography, Box, Grid } from '@mui/material';
+import { Card, CardContent, Typography, Box, Grid, Paper } from '@mui/material';
 import {
 	TrendingUp,
 	CloudDownload,
@@ -10,13 +10,26 @@ import {
 } from '@mui/icons-material';
 import StatCard from './StatCard';
 import { formatBytes, formatDuration } from '../utils/formatters';
+import { styled } from '@mui/material/styles';
 
 /**
  * Summary statistics section component
  */
+
+const Item = styled(Paper)(({ theme }) => ({
+	backgroundColor: '#fff',
+	...theme.typography.body2,
+	padding: theme.spacing(1),
+	textAlign: 'center',
+	color: (theme.vars ?? theme).palette.text.secondary,
+	...theme.applyStyles('dark', {
+		backgroundColor: '#1A2027',
+	}),
+}));
+
 const SummaryStatistics = ({ totalStats }) => {
 	return (
-		<Card sx={{ 
+		<Card sx={{
 			mb: 4,
 			boxShadow: '0 8px 32px rgba(0,0,0,0.1)',
 			borderRadius: 3,
@@ -29,64 +42,82 @@ const SummaryStatistics = ({ totalStats }) => {
 						Summary Statistics
 					</Typography>
 				</Box>
-				<Grid container spacing={3}>
-					<Grid item xs={6} sm={4} md={2}>
-						<StatCard
-							icon={CloudDownload}
-							title="Incoming"
-							value={formatBytes(totalStats.totalIncoming)}
-							color="primary"
-							colorValue="primary.main"
-						/>
+
+				<Box sx={{ flexGrow: 1 }}>
+					<Grid container spacing={2}>
+						<Grid size={6}>
+							<Item>
+								<StatCard
+									icon={CloudDownload}
+									title="Incoming"
+									value={formatBytes(totalStats.totalIncoming)}
+									color="primary"
+									colorValue="primary.main"
+								/>
+							</Item>
+						</Grid>
+
+						<Grid size={6}>
+							<Item>
+								<StatCard
+									icon={CloudUpload}
+									title="Outgoing"
+									value={formatBytes(totalStats.totalOutgoing)}
+									color="secondary"
+									colorValue="secondary.main"
+								/>
+							</Item>
+						</Grid>
+
+						<Grid size={{md: 6, lg: 3}}>
+							<Item>
+								<StatCard
+									icon={Schedule}
+									title="Duration"
+									value={formatDuration(totalStats.totalDuration)}
+									color="info"
+									colorValue="info.main"
+								/>
+							</Item>
+						</Grid>
+
+						<Grid size={{md: 6, lg: 3}}>
+							<Item>
+								<StatCard
+									icon={Computer}
+									title="Hosts"
+									value={totalStats.uniqueHosts}
+									color="success"
+									colorValue="success.main"
+								/>
+							</Item>
+						</Grid>
+						<Grid size={{md: 6, lg: 3}}>
+							<Item>
+								<StatCard
+									icon={TrendingUp}
+									title="Services"
+									value={totalStats.uniqueServices}
+									color="warning"
+									colorValue="warning.main"
+								/>
+							</Item>
+						</Grid>
+						<Grid size={{md: 6, lg: 3}}>
+							<Item>
+								<StatCard
+									icon={NetworkCheck}
+									title="Sessions"
+									value={totalStats.totalSessions}
+									color="purple"
+									colorValue="#9c27b0"
+								/>
+							</Item>
+						</Grid>
 					</Grid>
-					<Grid item xs={6} sm={4} md={2}>
-						<StatCard
-							icon={CloudUpload}
-							title="Outgoing"
-							value={formatBytes(totalStats.totalOutgoing)}
-							color="secondary"
-							colorValue="secondary.main"
-						/>
-					</Grid>
-					<Grid item xs={6} sm={4} md={2}>
-						<StatCard
-							icon={Schedule}
-							title="Duration"
-							value={formatDuration(totalStats.totalDuration)}
-							color="info"
-							colorValue="info.main"
-						/>
-					</Grid>
-					<Grid item xs={6} sm={4} md={2}>
-						<StatCard
-							icon={Computer}
-							title="Hosts"
-							value={totalStats.uniqueHosts}
-							color="success"
-							colorValue="success.main"
-						/>
-					</Grid>
-					<Grid item xs={6} sm={4} md={2}>
-						<StatCard
-							icon={TrendingUp}
-							title="Services"
-							value={totalStats.uniqueServices}
-							color="warning"
-							colorValue="warning.main"
-						/>
-					</Grid>
-					<Grid item xs={6} sm={4} md={2}>
-						<StatCard
-							icon={NetworkCheck}
-							title="Sessions"
-							value={totalStats.totalSessions}
-							color="purple"
-							colorValue="#9c27b0"
-						/>
-					</Grid>
-				</Grid>
+				</Box>
 			</CardContent>
-		</Card>
+		</Card >
 	);
 };
 

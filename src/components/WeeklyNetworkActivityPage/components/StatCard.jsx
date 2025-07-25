@@ -42,7 +42,7 @@ const StatCard = ({
 					</Typography>
 				</Box>
 				<Typography variant="h4" sx={{ 
-					fontSize: { xs: '1.5rem', md: '1.75rem' },
+					fontSize: { sm: '1.3rem', md: '1.15rem' },
 					fontWeight: 800,
 					color: 'text.primary'
 				}}>
