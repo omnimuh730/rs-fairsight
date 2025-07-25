@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::fs;
-use std::path::{PathBuf};
+use std::path::PathBuf;
 use chrono::{DateTime, Utc, NaiveDate, TimeZone};
 use crate::traffic_monitor::{TrafficData, NetworkHost, ServiceInfo};
 
@@ -32,19 +32,30 @@ pub struct DailyNetworkSummary {
 
 pub struct NetworkStorageManager {
     storage_dir: PathBuf,
+    backup_dir: PathBuf,
 }
 
 impl NetworkStorageManager {
     pub fn new() -> Result<Self, String> {
-        let home_dir = dirs::home_dir().ok_or("Could not find home directory")?;
-        let storage_dir = home_dir.join("fairsight-network-log");
+        // Use the same base directory as activity logging: C:\fairsight-log
+        // Network data will be stored in C:\fairsight-network-log
+        let storage_dir = std::path::Path::new("C:\\fairsight-network-log");
+        let backup_dir = std::path::Path::new("C:\\fairsight-network-backup");
         
         if !storage_dir.exists() {
             fs::create_dir_all(&storage_dir)
                 .map_err(|e| format!("Failed to create network storage directory: {}", e))?;
         }
         
-        Ok(Self { storage_dir })
+        if !backup_dir.exists() {
+            fs::create_dir_all(&backup_dir)
+                .map_err(|e| format!("Failed to create network backup directory: {}", e))?;
+        }
+        
+        Ok(Self { 
+            storage_dir: storage_dir.to_path_buf(),
+            backup_dir: backup_dir.to_path_buf(),
+        })
     }
 
     pub fn save_session(&self, session: &NetworkSession) -> Result<(), String> {
@@ -112,11 +123,29 @@ impl NetworkStorageManager {
     fn save_daily_summary(&self, date: &str, summary: &DailyNetworkSummary) -> Result<(), String> {
         let file_path = self.storage_dir.join(format!("network-{}.json", date));
         
+        // Create backup before saving if file exists
+        if file_path.exists() {
+            if let Err(e) = self.create_backup(date) {
+                eprintln!("Warning: Failed to create backup before saving: {}", e);
+            }
+        }
+        
         let content = serde_json::to_string_pretty(summary)
             .map_err(|e| format!("Failed to serialize daily summary: {}", e))?;
         
-        fs::write(&file_path, content)
-            .map_err(|e| format!("Failed to save daily summary: {}", e))?;
+        // Atomic save using temporary file
+        let temp_path = self.storage_dir.join(format!("network-{}.json.tmp", date));
+        
+        fs::write(&temp_path, &content)
+            .map_err(|e| format!("Failed to write temporary file: {}", e))?;
+        
+        // Verify the file was written correctly
+        let _ = fs::read_to_string(&temp_path)
+            .map_err(|e| format!("Failed to verify temporary file: {}", e))?;
+        
+        // Atomically replace the original file
+        fs::rename(&temp_path, &file_path)
+            .map_err(|e| format!("Failed to finalize save: {}", e))?;
         
         Ok(())
     }
@@ -206,6 +235,161 @@ impl NetworkStorageManager {
         
         dates.sort();
         Ok(dates)
+    }
+
+    /// Create a backup of network data files
+    pub fn create_backup(&self, date: &str) -> Result<(), String> {
+        let source_file = self.storage_dir.join(format!("network-{}.json", date));
+        
+        if !source_file.exists() {
+            return Ok(()); // Nothing to backup
+        }
+        
+        // Create backup with timestamp
+        let timestamp = chrono::Local::now().format("%Y%m%d_%H%M%S");
+        let backup_name = format!("network-{}.json.backup_{}", date, timestamp);
+        let temp_backup = self.backup_dir.join(format!("{}.tmp", backup_name));
+        let final_backup = self.backup_dir.join(backup_name);
+        
+        // First copy to temporary file
+        fs::copy(&source_file, &temp_backup)
+            .map_err(|e| format!("Failed to create temporary backup: {}", e))?;
+        
+        // Verify the backup by reading it back
+        let _ = fs::read(&temp_backup)
+            .map_err(|e| format!("Failed to verify backup: {}", e))?;
+        
+        // Atomically rename to final backup
+        fs::rename(&temp_backup, &final_backup)
+            .map_err(|e| format!("Failed to finalize backup: {}", e))?;
+        
+        // Keep only the 5 most recent backups for this date
+        self.cleanup_old_backups(date, 5)?;
+        
+        println!("Network data backup created for date: {}", date);
+        Ok(())
+    }
+
+    /// Clean up old backup files, keeping only the most recent ones
+    fn cleanup_old_backups(&self, date: &str, keep_count: usize) -> Result<(), String> {
+        let mut backups = Vec::new();
+        
+        if let Ok(entries) = fs::read_dir(&self.backup_dir) {
+            for entry in entries {
+                if let Ok(entry) = entry {
+                    let file_name = entry.file_name();
+                    let file_name_str = file_name.to_string_lossy();
+                    
+                    if file_name_str.starts_with(&format!("network-{}.json.backup_", date)) {
+                        if let Ok(metadata) = entry.metadata() {
+                            if let Ok(modified) = metadata.modified() {
+                                backups.push((entry.path(), modified));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        // Sort by modification time (newest first)
+        backups.sort_by(|a, b| b.1.cmp(&a.1));
+        
+        // Remove old backups beyond keep_count
+        for (path, _) in backups.into_iter().skip(keep_count) {
+            let _ = fs::remove_file(path);
+        }
+        
+        Ok(())
+    }
+
+    /// Restore from the most recent valid backup for a specific date
+    pub fn restore_from_backup(&self, date: &str) -> Result<(), String> {
+        // Find the most recent backup for this date
+        let mut backups = Vec::new();
+        
+        if let Ok(entries) = fs::read_dir(&self.backup_dir) {
+            for entry in entries {
+                if let Ok(entry) = entry {
+                    let entry_file_name = entry.file_name();
+                    let entry_file_name_str = entry_file_name.to_string_lossy();
+                    
+                    if entry_file_name_str.starts_with(&format!("network-{}.json.backup_", date)) {
+                        if let Ok(metadata) = entry.metadata() {
+                            if let Ok(modified) = metadata.modified() {
+                                backups.push((entry.path(), modified));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        if backups.is_empty() {
+            return Err(format!("No backup files found for date: {}", date));
+        }
+        
+        // Sort by modification time (newest first)
+        backups.sort_by(|a, b| b.1.cmp(&a.1));
+        
+        // Restore from the most recent backup
+        let (backup_path, _) = &backups[0];
+        let restore_path = self.storage_dir.join(format!("network-{}.json", date));
+        let temp_restore = self.storage_dir.join(format!("network-{}.json.tmp", date));
+        
+        // Copy backup to temporary file
+        fs::copy(backup_path, &temp_restore)
+            .map_err(|e| format!("Failed to copy backup: {}", e))?;
+        
+        // Verify the restore file
+        let _ = fs::read(&temp_restore)
+            .map_err(|e| format!("Failed to verify restore file: {}", e))?;
+        
+        // Atomically replace the original
+        fs::rename(&temp_restore, &restore_path)
+            .map_err(|e| format!("Failed to finalize restore: {}", e))?;
+        
+        println!("Network data restored from backup for date: {}", date);
+        Ok(())
+    }
+
+    /// Perform daily cleanup of old backup files (not today's backups)
+    pub fn daily_backup_cleanup(&self) -> Result<(), String> {
+        let today = chrono::Local::now().format("%Y-%m-%d").to_string();
+        let cutoff_date = chrono::Local::now() - chrono::Duration::days(7); // Keep backups for 7 days
+        
+        if let Ok(entries) = fs::read_dir(&self.backup_dir) {
+            for entry in entries {
+                if let Ok(entry) = entry {
+                    let file_name = entry.file_name();
+                    let file_name_str = file_name.to_string_lossy();
+                    
+                    // Skip today's backups
+                    if file_name_str.contains(&today) {
+                        continue;
+                    }
+                    
+                    // Extract timestamp from backup filename
+                    if file_name_str.contains(".backup_") {
+                        if let Some(timestamp_part) = file_name_str.split(".backup_").nth(1) {
+                            if let Ok(backup_date) = chrono::NaiveDateTime::parse_from_str(timestamp_part, "%Y%m%d_%H%M%S") {
+                                let backup_datetime = chrono::Local.from_local_datetime(&backup_date);
+                                if let Some(backup_datetime) = backup_datetime.single() {
+                                    if backup_datetime < cutoff_date {
+                                        if let Err(e) = fs::remove_file(entry.path()) {
+                                            eprintln!("Failed to remove old network backup: {}", e);
+                                        } else {
+                                            println!("Removed old network backup: {}", file_name_str);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        Ok(())
     }
 }
 

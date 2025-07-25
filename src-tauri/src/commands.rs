@@ -139,3 +139,21 @@ pub fn cleanup_old_network_data(days_to_keep: u32) -> Result<String, String> {
     NETWORK_STORAGE.cleanup_old_data(days_to_keep)?;
     Ok(format!("Cleaned up network data older than {} days", days_to_keep))
 }
+
+#[tauri::command]
+pub fn create_network_backup(date: String) -> Result<String, String> {
+    NETWORK_STORAGE.create_backup(&date)?;
+    Ok(format!("Backup created for network data: {}", date))
+}
+
+#[tauri::command]
+pub fn restore_network_backup(date: String) -> Result<String, String> {
+    NETWORK_STORAGE.restore_from_backup(&date)?;
+    Ok(format!("Network data restored from backup: {}", date))
+}
+
+#[tauri::command]
+pub fn cleanup_network_backups() -> Result<String, String> {
+    NETWORK_STORAGE.daily_backup_cleanup()?;
+    Ok("Old network backups cleaned up successfully".to_string())
+}

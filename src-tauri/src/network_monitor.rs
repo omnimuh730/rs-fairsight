@@ -48,21 +48,34 @@ pub fn get_network_adapters() -> Result<Vec<NetworkAdapter>, String> {
             
             Ok(adapters)
         }
-        Err(e) => Err(format!("Failed to get network devices: {}", e)),
+        Err(e) => Err(format!("Failed to list network devices: {}", e)),
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct NetworkMonitorConfig {
-    pub selected_adapter: Option<String>,
-    pub monitoring_enabled: bool,
-}
-
-impl Default for NetworkMonitorConfig {
-    fn default() -> Self {
-        Self {
-            selected_adapter: None,
-            monitoring_enabled: false,
+/// Get the best available network adapter for monitoring (non-loopback, up, with addresses)
+pub fn get_default_network_adapter() -> Result<String, String> {
+    let adapters = get_network_adapters()?;
+    
+    // First, try to find a non-loopback adapter that's up and has addresses
+    for adapter in &adapters {
+        if !adapter.is_loopback && adapter.is_up && !adapter.addresses.is_empty() {
+            return Ok(adapter.name.clone());
         }
     }
+    
+    // If no ideal adapter found, try any non-loopback adapter that's up
+    for adapter in &adapters {
+        if !adapter.is_loopback && adapter.is_up {
+            return Ok(adapter.name.clone());
+        }
+    }
+    
+    // If still no adapter found, try any non-loopback adapter
+    for adapter in &adapters {
+        if !adapter.is_loopback {
+            return Ok(adapter.name.clone());
+        }
+    }
+    
+    Err("No suitable network adapter found for monitoring".to_string())
 }

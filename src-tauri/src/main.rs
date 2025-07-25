@@ -28,8 +28,10 @@ use crate::encryption::KEY;
 use crate::file_utils::{is_log_file_valid, load_backup};
 use crate::hooks::setup_hooks;
 use crate::time_tracker::initialize_time_tracking;
+use crate::network_monitor::get_default_network_adapter;
+use crate::traffic_monitor::get_or_create_monitor;
 use crate::web_server::start_web_server;
-use crate::commands::{greet, sync_time_data, aggregate_week_activity_logs, get_health_status, get_all_logs, get_recent_logs_limited, clear_all_logs, get_network_adapters_command, start_network_monitoring, stop_network_monitoring, get_network_stats, is_network_monitoring, get_network_history, get_available_network_dates, cleanup_old_network_data};
+use crate::commands::{greet, sync_time_data, aggregate_week_activity_logs, get_health_status, get_all_logs, get_recent_logs_limited, clear_all_logs, get_network_adapters_command, start_network_monitoring, stop_network_monitoring, get_network_stats, is_network_monitoring, get_network_history, get_available_network_dates, cleanup_old_network_data, create_network_backup, restore_network_backup, cleanup_network_backups};
 use crate::ui_setup::{setup_tray_and_window_events, handle_window_event};
 use crate::health_monitor::initialize_health_monitoring;
 
@@ -124,6 +126,26 @@ fn main() {
         rt.block_on(start_web_server());
     });
 
+    // Auto-start network monitoring on application startup
+    std::thread::spawn(|| {
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        rt.block_on(async {
+            // Wait a bit for the application to fully initialize
+            tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
+            
+            match get_default_network_adapter() {
+                Ok(adapter_name) => {
+                    let monitor = get_or_create_monitor(&adapter_name);
+                    match monitor.start_monitoring().await {
+                        Ok(_) => println!("🚀 Auto-started network monitoring on adapter: {}", adapter_name),
+                        Err(e) => eprintln!("❌ Failed to auto-start network monitoring: {}", e),
+                    }
+                }
+                Err(e) => eprintln!("⚠️  No suitable network adapter found for auto-start: {}", e),
+            }
+        });
+    });
+
     builder
         .plugin(
             tauri_plugin_autostart::init(
@@ -140,7 +162,7 @@ fn main() {
         })
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(
-            tauri::generate_handler![greet, sync_time_data, aggregate_week_activity_logs, get_health_status, get_all_logs, get_recent_logs_limited, clear_all_logs, get_network_adapters_command, start_network_monitoring, stop_network_monitoring, get_network_stats, is_network_monitoring, get_network_history, get_available_network_dates, cleanup_old_network_data]
+            tauri::generate_handler![greet, sync_time_data, aggregate_week_activity_logs, get_health_status, get_all_logs, get_recent_logs_limited, clear_all_logs, get_network_adapters_command, start_network_monitoring, stop_network_monitoring, get_network_stats, is_network_monitoring, get_network_history, get_available_network_dates, cleanup_old_network_data, create_network_backup, restore_network_backup, cleanup_network_backups]
         )
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
