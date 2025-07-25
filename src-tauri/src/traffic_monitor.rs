@@ -4,6 +4,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use dashmap::DashMap;
 use parking_lot::RwLock;
 use rand::Rng;
+use crate::network_storage::{NETWORK_STORAGE, NetworkSession};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TrafficData {
@@ -65,6 +66,7 @@ pub struct TrafficMonitor {
     pub services: Arc<DashMap<String, ServiceInfo>>,
     pub traffic_history: Arc<Mutex<Vec<TrafficData>>>,
     pub is_running: Arc<RwLock<bool>>,
+    pub session_start_time: Arc<RwLock<Option<u64>>>,
 }
 
 impl TrafficMonitor {
@@ -91,6 +93,7 @@ impl TrafficMonitor {
             services: Arc::new(DashMap::new()),
             traffic_history: Arc::new(Mutex::new(Vec::new())),
             is_running: Arc::new(RwLock::new(false)),
+            session_start_time: Arc::new(RwLock::new(None)),
         }
     }
 
@@ -100,6 +103,10 @@ impl TrafficMonitor {
             return Err("Monitoring is already running".to_string());
         }
         *is_running = true;
+
+        // Record session start time
+        let start_time = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
+        *self.session_start_time.write() = Some(start_time);
 
         let config = self.config.read().clone();
         
@@ -128,7 +135,39 @@ impl TrafficMonitor {
 
     pub fn stop_monitoring(&self) {
         let mut is_running = self.is_running.write();
+        if !*is_running {
+            return; // Already stopped
+        }
         *is_running = false;
+
+        // Save session data to local storage
+        if let Some(start_time) = *self.session_start_time.read() {
+            let end_time = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
+            let stats = self.get_stats();
+            
+            let session = NetworkSession {
+                adapter_name: self.config.read().adapter_name.clone(),
+                start_time,
+                end_time: Some(end_time),
+                total_incoming_bytes: stats.total_incoming_bytes,
+                total_outgoing_bytes: stats.total_outgoing_bytes,
+                total_incoming_packets: stats.total_incoming_packets,
+                total_outgoing_packets: stats.total_outgoing_packets,
+                duration: end_time - start_time,
+                traffic_data: stats.traffic_rate.clone(),
+                top_hosts: stats.network_hosts.iter().take(20).cloned().collect(), // Top 20 hosts
+                top_services: stats.services.iter().take(20).cloned().collect(), // Top 20 services
+            };
+
+            if let Err(e) = NETWORK_STORAGE.save_session(&session) {
+                eprintln!("Failed to save network session: {}", e);
+            } else {
+                println!("Network session saved successfully");
+            }
+
+            // Reset session start time
+            *self.session_start_time.write() = None;
+        }
     }
 
     pub fn get_stats(&self) -> MonitoringStats {
@@ -181,9 +220,9 @@ impl TrafficMonitor {
             let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
             
             // Simulate traffic data (replace with real packet capture)
-            let mut rng = rand::thread_rng();
-            let incoming_bytes = rng.gen_range(1024..102400) as u64; // 1KB to 100KB per second
-            let outgoing_bytes = rng.gen_range(512..51200) as u64;   // 0.5KB to 50KB per second
+            let mut rng = rand::rng();
+            let incoming_bytes = rng.random_range(1024..102400) as u64; // 1KB to 100KB per second
+            let outgoing_bytes = rng.random_range(512..51200) as u64;   // 0.5KB to 50KB per second
             let incoming_packets = incoming_bytes / 1024 + 1;
             let outgoing_packets = outgoing_bytes / 1024 + 1;
 
@@ -219,7 +258,7 @@ impl TrafficMonitor {
             }
 
             // Simulate some network hosts
-            let mut rng = rand::thread_rng();
+            let mut rng = rand::rng();
             if rng.gen::<f32>() < 0.3 {
                 Self::simulate_network_host(&hosts, now);
             }
@@ -244,12 +283,12 @@ impl TrafficMonitor {
             ("United Kingdom", "GB"), ("Japan", "JP"), ("Australia", "AU")
         ];
 
-        let mut rng = rand::thread_rng();
-        let ip = ips[rng.gen_range(0..ips.len())].to_string();
-        let (country, country_code) = countries[rng.gen_range(0..countries.len())];
+        let mut rng = rand::rng();
+        let ip = ips[rng.random_range(0..ips.len())].to_string();
+        let (country, country_code) = countries[rng.random_range(0..countries.len())];
         
-        let incoming = rng.gen_range(1024..20480) as u64; // 1KB to 20KB per host
-        let outgoing = rng.gen_range(512..10240) as u64;  // 0.5KB to 10KB per host
+        let incoming = rng.random_range(1024..20480) as u64; // 1KB to 20KB per host
+        let outgoing = rng.random_range(512..10240) as u64;  // 0.5KB to 10KB per host
 
         hosts.entry(ip.clone()).and_modify(|host| {
             host.incoming_bytes += incoming;
@@ -285,8 +324,8 @@ impl TrafficMonitor {
             ("UDP", 123, "NTP"),
         ];
 
-        let mut rng = rand::thread_rng();
-        let (protocol, port, service_name) = service_data[rng.gen_range(0..service_data.len())];
+        let mut rng = rand::rng();
+        let (protocol, port, service_name) = service_data[rng.random_range(0..service_data.len())];
         let key = format!("{}:{}", protocol, port);
         
         services.entry(key.clone()).and_modify(|service| {

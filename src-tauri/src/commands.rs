@@ -3,6 +3,7 @@ use crate::health_monitor::HEALTH_MONITOR;
 use crate::logger::{get_logs, get_recent_logs, clear_logs, LogEntry};
 use crate::network_monitor::{get_network_adapters, NetworkAdapter};
 use crate::traffic_monitor::{get_or_create_monitor, MonitoringStats};
+use crate::network_storage::{NETWORK_STORAGE, DailyNetworkSummary};
 
 #[tauri::command]
 pub fn greet(name: &str) -> String {
@@ -103,4 +104,20 @@ pub fn get_network_stats(adapter_name: String) -> Result<MonitoringStats, String
 pub fn is_network_monitoring(adapter_name: String) -> bool {
     let monitor = get_or_create_monitor(&adapter_name);
     monitor.is_monitoring()
+}
+
+#[tauri::command]
+pub fn get_network_history(start_date: String, end_date: String) -> Result<Vec<DailyNetworkSummary>, String> {
+    NETWORK_STORAGE.get_date_range_data(&start_date, &end_date)
+}
+
+#[tauri::command]
+pub fn get_available_network_dates() -> Result<Vec<String>, String> {
+    NETWORK_STORAGE.get_available_dates()
+}
+
+#[tauri::command]
+pub fn cleanup_old_network_data(days_to_keep: u32) -> Result<String, String> {
+    NETWORK_STORAGE.cleanup_old_data(days_to_keep)?;
+    Ok(format!("Cleaned up network data older than {} days", days_to_keep))
 }

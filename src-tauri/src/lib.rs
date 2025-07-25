@@ -12,6 +12,7 @@ pub mod health_monitor;
 pub mod logger;
 pub mod network_monitor;
 pub mod traffic_monitor;
+pub mod network_storage;
 
 #[cfg(target_os = "macos")]
 pub mod macos_utils;
