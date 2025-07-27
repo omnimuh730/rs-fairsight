@@ -7,8 +7,27 @@ const StatsCards = ({
 	totalAdapters,
 	activeAdapters,
 	monitoringCount,
-	totalStats
+	totalStats,
+	lifetimeStats,
+	showLifetime = false
 }) => {
+	const currentData = showLifetime && lifetimeStats ? 
+		{
+			totalIncoming: lifetimeStats.lifetime_incoming_bytes || 0,
+			totalOutgoing: lifetimeStats.lifetime_outgoing_bytes || 0
+		} :
+		{
+			totalIncoming: totalStats?.totalIncoming || 0,
+			totalOutgoing: totalStats?.totalOutgoing || 0
+		};
+
+	const formatBytes = (bytes) => {
+		if (bytes === 0) return '0 B';
+		const k = 1024;
+		const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+		const i = Math.floor(Math.log(bytes) / Math.log(k));
+		return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+	};
 	return (
 		<Box sx={{ flexGrow: 1 }}>
 			<Grid container spacing={2}>
@@ -62,13 +81,15 @@ const StatsCards = ({
 						<CardContent sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', height: '100%' }}>
 							<Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
 								<Storage color="warning" sx={{ mr: 1 }} />
-								<Typography variant="h6">Total Data</Typography>
+								<Typography variant="h6">
+									{showLifetime ? 'Lifetime Data' : 'Session Data'}
+								</Typography>
 							</Box>
 							<Typography variant="h3" color="warning.main">
-								{formatBytes(totalStats.totalIncoming + totalStats.totalOutgoing)}
+								{formatBytes(currentData.totalIncoming + currentData.totalOutgoing)}
 							</Typography>
 							<Typography variant="caption" color="text.secondary">
-								↓ {formatBytes(totalStats.totalIncoming)} ↑ {formatBytes(totalStats.totalOutgoing)}
+								↓ {formatBytes(currentData.totalIncoming)} ↑ {formatBytes(currentData.totalOutgoing)}
 							</Typography>
 						</CardContent>
 					</Card>

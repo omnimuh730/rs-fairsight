@@ -16,6 +16,7 @@ mod logger;
 mod network_monitor;
 mod traffic_monitor;
 mod network_storage;
+mod persistent_state;
 #[cfg(target_os = "macos")]
 mod macos_utils;
 
@@ -31,9 +32,10 @@ use crate::time_tracker::initialize_time_tracking;
 use crate::network_monitor::get_default_network_adapter;
 use crate::traffic_monitor::get_or_create_monitor;
 use crate::web_server::start_web_server;
-use crate::commands::{greet, sync_time_data, aggregate_week_activity_logs, get_health_status, get_all_logs, get_recent_logs_limited, clear_all_logs, get_network_adapters_command, start_network_monitoring, stop_network_monitoring, get_network_stats, is_network_monitoring, get_network_history, get_available_network_dates, cleanup_old_network_data, create_network_backup, restore_network_backup, cleanup_network_backups};
+use crate::commands::{greet, sync_time_data, aggregate_week_activity_logs, get_health_status, get_all_logs, get_recent_logs_limited, clear_all_logs, get_network_adapters_command, start_network_monitoring, stop_network_monitoring, get_network_stats, is_network_monitoring, get_network_history, get_available_network_dates, cleanup_old_network_data, create_network_backup, restore_network_backup, cleanup_network_backups, get_adapter_persistent_state, get_lifetime_stats, check_unexpected_shutdown, get_current_network_totals};
 use crate::ui_setup::{setup_tray_and_window_events, handle_window_event};
 use crate::health_monitor::initialize_health_monitoring;
+use crate::persistent_state::get_persistent_state_manager;
 
 #[cfg(target_os = "macos")]
 use dirs;
@@ -155,14 +157,36 @@ fn main() {
         )
         .setup(|app| {
             setup_tray_and_window_events(app)?;
+            
+            // Check for unexpected shutdown and warn if needed
+            match get_persistent_state_manager().was_unexpected_shutdown() {
+                Ok(true) => {
+                    println!("⚠️  Detected unexpected shutdown - some network data may have been lost");
+                }
+                Ok(false) => {
+                    println!("✅ Clean shutdown detected - data integrity maintained");
+                }
+                Err(e) => {
+                    eprintln!("❌ Failed to check shutdown state: {}", e);
+                }
+            }
+            
             Ok(())
         })
         .on_window_event(|window, event| {
             handle_window_event(window, event);
+            
+            // Handle clean shutdown
+            if let tauri::WindowEvent::CloseRequested { .. } = event {
+                println!("🔄 Application closing - marking clean shutdown...");
+                if let Err(e) = get_persistent_state_manager().mark_clean_shutdown() {
+                    eprintln!("⚠️  Failed to mark clean shutdown: {}", e);
+                }
+            }
         })
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(
-            tauri::generate_handler![greet, sync_time_data, aggregate_week_activity_logs, get_health_status, get_all_logs, get_recent_logs_limited, clear_all_logs, get_network_adapters_command, start_network_monitoring, stop_network_monitoring, get_network_stats, is_network_monitoring, get_network_history, get_available_network_dates, cleanup_old_network_data, create_network_backup, restore_network_backup, cleanup_network_backups]
+            tauri::generate_handler![greet, sync_time_data, aggregate_week_activity_logs, get_health_status, get_all_logs, get_recent_logs_limited, clear_all_logs, get_network_adapters_command, start_network_monitoring, stop_network_monitoring, get_network_stats, is_network_monitoring, get_network_history, get_available_network_dates, cleanup_old_network_data, create_network_backup, restore_network_backup, cleanup_network_backups, get_adapter_persistent_state, get_lifetime_stats, check_unexpected_shutdown, get_current_network_totals]
         )
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

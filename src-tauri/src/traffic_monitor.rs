@@ -5,6 +5,7 @@ use dashmap::DashMap;
 use parking_lot::RwLock;
 use rand::Rng;
 use crate::network_storage::{NETWORK_STORAGE, NetworkSession};
+use crate::persistent_state::{get_persistent_state_manager};
 use pcap::{Capture, Device};
 use etherparse::LaxPacketHeaders;
 use dns_lookup::lookup_addr;
@@ -77,6 +78,28 @@ pub struct TrafficMonitor {
 
 impl TrafficMonitor {
     pub fn new(adapter_name: String) -> Self {
+        // Load persistent state for this adapter
+        let persistent_state = get_persistent_state_manager()
+            .get_adapter_state(&adapter_name)
+            .unwrap_or(None);
+
+        let (total_incoming, total_outgoing, total_in_packets, total_out_packets) = 
+            if let Some(ref state) = persistent_state {
+                (
+                    state.cumulative_incoming_bytes,
+                    state.cumulative_outgoing_bytes,
+                    state.cumulative_incoming_packets,
+                    state.cumulative_outgoing_packets,
+                )
+            } else {
+                (0, 0, 0, 0)
+            };
+
+        println!("🔄 Initializing TrafficMonitor for '{}' - Restored state: ↓{}KB ↑{}KB", 
+            adapter_name, 
+            total_incoming / 1024, 
+            total_outgoing / 1024);
+
         Self {
             config: Arc::new(RwLock::new(MonitoringConfig {
                 adapter_name,
@@ -86,10 +109,10 @@ impl TrafficMonitor {
                 max_services: 100,
             })),
             stats: Arc::new(RwLock::new(MonitoringStats {
-                total_incoming_bytes: 0,
-                total_outgoing_bytes: 0,
-                total_incoming_packets: 0,
-                total_outgoing_packets: 0,
+                total_incoming_bytes: total_incoming,
+                total_outgoing_bytes: total_outgoing,
+                total_incoming_packets: total_in_packets,
+                total_outgoing_packets: total_out_packets,
                 monitoring_duration: 0,
                 traffic_rate: Vec::new(),
                 network_hosts: Vec::new(),
@@ -115,9 +138,22 @@ impl TrafficMonitor {
         *self.session_start_time.write() = Some(start_time);
 
         let config = self.config.read().clone();
+        let adapter_name = config.adapter_name.clone();
+
+        // Update persistent state to mark as monitoring
+        if let Err(e) = get_persistent_state_manager().update_adapter_state(&adapter_name, |state| {
+            state.session_start_time = Some(start_time);
+            state.was_monitoring_on_exit = true;
+            if state.first_recorded_time.is_none() {
+                state.first_recorded_time = Some(start_time);
+            }
+        }) {
+            eprintln!("⚠️  Failed to update persistent state on start: {}", e);
+        }
+
+        println!("🚀 Starting network monitoring for '{}'", adapter_name);
         
         // Clone necessary data for the monitoring task
-        let adapter_name = config.adapter_name.clone();
         let hosts = Arc::clone(&self.hosts);
         let services = Arc::clone(&self.services);
         let traffic_history = Arc::clone(&self.traffic_history);
@@ -146,16 +182,18 @@ impl TrafficMonitor {
         }
         *is_running = false;
 
+        let config = self.config.read();
+        let adapter_name = config.adapter_name.clone();
+
         // Save final session with remaining data before stopping
         if let Some(start_time) = *self.session_start_time.read() {
             let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
             let current_stats = self.stats.read();
-            let config = self.config.read();
             
             // Save final session if there's any data
             if current_stats.total_incoming_bytes > 0 || current_stats.total_outgoing_bytes > 0 {
                 let final_session = NetworkSession {
-                    adapter_name: config.adapter_name.clone(),
+                    adapter_name: adapter_name.clone(),
                     start_time,
                     end_time: Some(now),
                     total_incoming_bytes: current_stats.total_incoming_bytes,
@@ -176,9 +214,23 @@ impl TrafficMonitor {
                         current_stats.total_outgoing_bytes / 1024);
                 }
             }
+
+            // Update persistent state to mark as not monitoring and save cumulative totals
+            if let Err(e) = get_persistent_state_manager().update_adapter_state(&adapter_name, |state| {
+                state.cumulative_incoming_bytes = current_stats.total_incoming_bytes;
+                state.cumulative_outgoing_bytes = current_stats.total_outgoing_bytes;
+                state.cumulative_incoming_packets = current_stats.total_incoming_packets;
+                state.cumulative_outgoing_packets = current_stats.total_outgoing_packets;
+                state.last_session_end_time = Some(now);
+                state.was_monitoring_on_exit = false;
+                state.lifetime_incoming_bytes = current_stats.total_incoming_bytes;
+                state.lifetime_outgoing_bytes = current_stats.total_outgoing_bytes;
+            }) {
+                eprintln!("⚠️  Failed to update persistent state on stop: {}", e);
+            }
         }
 
-        println!("Stopped monitoring - final session saved");
+        println!("🛑 Stopped monitoring '{}' - final session saved", adapter_name);
 
         // Reset session start time
         *self.session_start_time.write() = None;
@@ -758,7 +810,19 @@ impl TrafficMonitor {
         let incremental_incoming_packets = current_stats.total_incoming_packets - *last_save_incoming_packets;
         let incremental_outgoing_packets = current_stats.total_outgoing_packets - *last_save_outgoing_packets;
         
-        // Only save if there's actual incremental traffic data
+        // Update persistent state with current cumulative totals
+        if let Err(e) = get_persistent_state_manager().update_adapter_state(adapter_name, |state| {
+            state.cumulative_incoming_bytes = current_stats.total_incoming_bytes;
+            state.cumulative_outgoing_bytes = current_stats.total_outgoing_bytes;
+            state.cumulative_incoming_packets = current_stats.total_incoming_packets;
+            state.cumulative_outgoing_packets = current_stats.total_outgoing_packets;
+            state.lifetime_incoming_bytes = current_stats.total_incoming_bytes;
+            state.lifetime_outgoing_bytes = current_stats.total_outgoing_bytes;
+        }) {
+            eprintln!("⚠️  Failed to update persistent state during periodic save: {}", e);
+        }
+        
+        // Only save session if there's actual incremental traffic data
         if incremental_incoming == 0 && incremental_outgoing == 0 {
             return;
         }
@@ -780,8 +844,11 @@ impl TrafficMonitor {
         if let Err(e) = NETWORK_STORAGE.save_session(&session) {
             eprintln!("Failed to save periodic network session: {}", e);
         } else {
-            println!("Periodic network session saved (8 seconds) - Incremental: ↓{}KB ↑{}KB", 
-                incremental_incoming / 1024, incremental_outgoing / 1024);
+            println!("Periodic network session saved (8 seconds) - Incremental: ↓{}KB ↑{}KB (Total: ↓{}KB ↑{}KB)", 
+                incremental_incoming / 1024, 
+                incremental_outgoing / 1024,
+                current_stats.total_incoming_bytes / 1024,
+                current_stats.total_outgoing_bytes / 1024);
         }
         
         *last_save_time = now;

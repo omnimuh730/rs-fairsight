@@ -37,7 +37,41 @@ export const useNetworkAdapters = () => {
 export const useNetworkMonitoring = (adapters) => {
 	const [monitoringStates, setMonitoringStates] = useState({});
 	const [networkStats, setNetworkStats] = useState({});
+	const [lifetimeStats, setLifetimeStats] = useState({});
+	const [unexpectedShutdown, setUnexpectedShutdown] = useState(false);
 	const pollIntervalRef = useRef(null);
+
+	// Check for unexpected shutdown on mount
+	useEffect(() => {
+		const checkShutdown = async () => {
+			try {
+				const wasUnexpected = await invoke('check_unexpected_shutdown');
+				setUnexpectedShutdown(wasUnexpected);
+				if (wasUnexpected) {
+					console.warn('⚠️  Previous session ended unexpectedly - some data may have been lost');
+				}
+			} catch (err) {
+				console.error('Failed to check shutdown state:', err);
+			}
+		};
+		
+		checkShutdown();
+	}, []);
+
+	// Load lifetime stats
+	useEffect(() => {
+		const loadLifetimeStats = async () => {
+			try {
+				const stats = await invoke('get_lifetime_stats');
+				setLifetimeStats(stats);
+				console.log('📊 Loaded lifetime network statistics:', stats);
+			} catch (err) {
+				console.error('Failed to load lifetime stats:', err);
+			}
+		};
+		
+		loadLifetimeStats();
+	}, []);
 
 	// Initialize monitoring states and auto-start monitoring for all adapters
 	useEffect(() => {
@@ -52,7 +86,7 @@ export const useNetworkMonitoring = (adapters) => {
 						try {
 							await invoke('start_network_monitoring', { adapterName: adapter.name });
 							states[adapter.name] = true;
-							console.log(`Auto-started monitoring for adapter: ${adapter.name}`);
+							console.log(`🚀 Auto-started monitoring for adapter: ${adapter.name}`);
 						} catch (startErr) {
 							console.warn(`Failed to auto-start monitoring for ${adapter.name}:`, startErr);
 							states[adapter.name] = false;
@@ -119,9 +153,37 @@ export const useNetworkMonitoring = (adapters) => {
 		}
 	};
 
+	const stopMonitoring = async (adapterName) => {
+		try {
+			await invoke('stop_network_monitoring', { adapterName });
+			setMonitoringStates(prev => ({
+				...prev,
+				[adapterName]: false
+			}));
+		} catch (err) {
+			console.error(`Failed to stop monitoring ${adapterName}:`, err);
+			throw err;
+		}
+	};
+
+	const refreshLifetimeStats = async () => {
+		try {
+			const stats = await invoke('get_lifetime_stats');
+			setLifetimeStats(stats);
+			return stats;
+		} catch (err) {
+			console.error('Failed to refresh lifetime stats:', err);
+			throw err;
+		}
+	};
+
 	return {
 		monitoringStates,
 		networkStats,
-		startMonitoring
+		lifetimeStats,
+		unexpectedShutdown,
+		startMonitoring,
+		stopMonitoring,
+		refreshLifetimeStats,
 	};
 };

@@ -1,6 +1,6 @@
 import React from 'react';
-import { Card, CardContent, Typography, Box } from '@mui/material';
-import {
+import { Card, CardContent, Typography, Box, Chip } from '@mui/material';
+import { 
 	LineChart,
 	Line,
 	XAxis,
@@ -12,7 +12,42 @@ import {
 } from 'recharts';
 
 /**
- * Daily Traffic Line Chart Component
+ * Enhanced tooltip for showing both real-time and session data
+ */
+const CustomTooltip = ({ active, payload, label }) => {
+	if (active && payload && payload.length) {
+		const data = payload[0].payload;
+		return (
+			<Box sx={{ 
+				bgcolor: 'white', 
+				p: 2, 
+				border: '1px solid #ddd', 
+				borderRadius: 1,
+				boxShadow: '0 4px 8px rgba(0,0,0,0.1)'
+			}}>
+				<Typography variant="subtitle2" gutterBottom>{label}</Typography>
+				{data.hasRealTimeData && (
+					<Chip label="Real-time Data" color="success" size="small" sx={{ mb: 1 }} />
+				)}
+				<Typography variant="body2">Incoming: {data.incoming} MB</Typography>
+				<Typography variant="body2">Outgoing: {data.outgoing} MB</Typography>
+				{data.hasRealTimeData && data.sessionIncoming !== data.incoming && (
+					<Box sx={{ mt: 1, pt: 1, borderTop: '1px solid #eee' }}>
+						<Typography variant="caption" color="text.secondary">
+							Session data: ↓{data.sessionIncoming}MB ↑{data.sessionOutgoing}MB
+						</Typography>
+					</Box>
+				)}
+				<Typography variant="body2">Sessions: {data.sessions}</Typography>
+				<Typography variant="body2">Duration: {data.duration} min</Typography>
+			</Box>
+		);
+	}
+	return null;
+};
+
+/**
+ * Daily Traffic Line Chart Component - Enhanced with real-time data
  */
 const DailyTrafficChart = ({ chartData }) => {
 	return (
@@ -26,9 +61,19 @@ const DailyTrafficChart = ({ chartData }) => {
 			m: 0
 		}}>
 			<CardContent sx={{ p: 3, height: '100%', display: 'flex', flexDirection: 'column', width: '100%' }}>
-				<Typography variant="h6" gutterBottom sx={{ fontWeight: 600, mb: 2, fontSize: { xs: '1rem', md: '1.25rem' } }}>
-					Daily Network Traffic (MB)
-				</Typography>
+				<Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+					<Typography variant="h6" sx={{ fontWeight: 600, fontSize: { xs: '1rem', md: '1.25rem' } }}>
+						Daily Network Traffic (MB)
+					</Typography>
+					{chartData.some(d => d.hasRealTimeData) && (
+						<Chip 
+							label="Live Data" 
+							color="success" 
+							size="small" 
+							variant="outlined"
+						/>
+					)}
+				</Box>
 				<Box sx={{ height: { xs: 300, md: 350 }, flex: 1 }}>
 					<ResponsiveContainer width="100%" height="100%">
 						<LineChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
@@ -44,15 +89,7 @@ const DailyTrafficChart = ({ chartData }) => {
 								tick={{ fill: '#666' }}
 								axisLine={{ stroke: '#ddd' }}
 							/>
-							<Tooltip 
-								formatter={(value) => [`${value} MB`, '']} 
-								contentStyle={{
-									backgroundColor: '#fff',
-									border: '1px solid #ddd',
-									borderRadius: 8,
-									boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
-								}}
-							/>
+							<Tooltip content={<CustomTooltip />} />
 							<Legend />
 							<Line
 								type="monotone"

@@ -6,6 +6,7 @@ import dayjs from 'dayjs';
 
 // Components
 import PageHeader from './components/PageHeader';
+import NetworkDataSync from './components/NetworkDataSync';
 import DateRangeSelector from './components/DateRangeSelector';
 import SummaryStatistics from './components/SummaryStatistics';
 import AnalyticsSection from './components/AnalyticsSection';
@@ -23,6 +24,8 @@ const WeeklyNetworkActivityPage = () => {
 		startDate,
 		endDate,
 		networkData,
+		rawSessionData,
+		persistentStateData,
 		loading,
 		error,
 		totalStats,
@@ -31,7 +34,7 @@ const WeeklyNetworkActivityPage = () => {
 		fetchNetworkData
 	} = useWeeklyNetworkData(
 		dayjs().subtract(7, 'day'),
-		dayjs()
+		dayjs().add(1, 'day') // Include tomorrow to ensure we get today's data regardless of timezone
 	);
 
 	// Prepare chart data
@@ -47,6 +50,22 @@ const WeeklyNetworkActivityPage = () => {
 				minHeight: '100vh'
 			}}>
 				<PageHeader />
+
+				<NetworkDataSync onDataUpdate={(data) => {
+					console.log('Network data sync update:', data);
+					// Refresh the weekly data when real-time data changes significantly
+					if (persistentStateData) {
+						const currentTotal = data.combined_totals.total_incoming_bytes + data.combined_totals.total_outgoing_bytes;
+						const previousTotal = persistentStateData.combined_totals?.total_incoming_bytes + persistentStateData.combined_totals?.total_outgoing_bytes || 0;
+						const diff = Math.abs(currentTotal - previousTotal);
+						
+						// If there's a significant change (more than 1MB), refresh the data
+						if (diff > 1024 * 1024) {
+							console.log('📊 Significant traffic change detected, refreshing weekly data...');
+							fetchNetworkData();
+						}
+					}
+				}} />
 
 				<DateRangeSelector
 					startDate={startDate}

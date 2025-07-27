@@ -3,8 +3,16 @@ import { Box, Typography } from '@mui/material';
 import { Dashboard } from '@mui/icons-material';
 import StatsCards from './StatsCards';
 import AdapterList from './AdapterList';
+import DataPersistenceStatus from './DataPersistenceStatus';
 
-const TotalOverview = ({ adapters, monitoringStates, networkStats }) => {
+const TotalOverview = ({ 
+	adapters, 
+	monitoringStates, 
+	networkStats, 
+	lifetimeStats,
+	unexpectedShutdown,
+	onRefreshLifetimeStats 
+}) => {
 	const activeAdapters = adapters.filter(adapter => adapter.is_up && !adapter.is_loopback);
 	const totalAdapters = adapters.length;
 	const monitoringCount = Object.values(monitoringStates).filter(Boolean).length;
@@ -27,12 +35,20 @@ const TotalOverview = ({ adapters, monitoringStates, networkStats }) => {
 				Network Overview
 			</Typography>
 			
+			<DataPersistenceStatus
+				lifetimeStats={lifetimeStats}
+				unexpectedShutdown={unexpectedShutdown}
+				onRefreshLifetimeStats={onRefreshLifetimeStats}
+				adapters={adapters}
+			/>
+			
 			<Box sx={{ mb: 3 }}>
 				<StatsCards
 					totalAdapters={totalAdapters}
 					activeAdapters={activeAdapters.length}
 					monitoringCount={monitoringCount}
 					totalStats={totalStats}
+					lifetimeStats={lifetimeStats}
 				/>
 			</Box>
 

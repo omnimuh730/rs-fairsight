@@ -29,7 +29,11 @@ const NetworkMonitorPage = () => {
 	const { 
 		monitoringStates, 
 		networkStats, 
-		startMonitoring, 
+		lifetimeStats,
+		unexpectedShutdown,
+		startMonitoring,
+		stopMonitoring,
+		refreshLifetimeStats,
 	} = useNetworkMonitoring(adapters);
 
 	const handleAdapterSelect = (adapterName) => {
@@ -73,6 +77,13 @@ const NetworkMonitorPage = () => {
 				<Typography variant="body1" color="text.secondary" paragraph>
 					Monitor network traffic across your network adapters. Use the tabs below to view overall statistics or details for individual adapters.
 				</Typography>
+
+				{unexpectedShutdown && (
+					<Alert severity="warning" sx={{ mb: 2 }}>
+						Previous session ended unexpectedly - some network data may have been lost. 
+						The app is now tracking from the last saved state.
+					</Alert>
+				)}
 
 				{error && (
 					<Alert severity="error" sx={{ mb: 2 }}>
@@ -126,14 +137,19 @@ const NetworkMonitorPage = () => {
 								<TotalOverview 
 									adapters={adapters} 
 									monitoringStates={monitoringStates} 
-									networkStats={networkStats} 
+									networkStats={networkStats}
+									lifetimeStats={lifetimeStats}
+									unexpectedShutdown={unexpectedShutdown}
+									onRefreshLifetimeStats={refreshLifetimeStats}
 								/>
 							) : (
 								<AdapterDetails 
 									adapter={adapters[selectedTab - 1]} 
 									isMonitoring={monitoringStates[adapters[selectedTab - 1]?.name] || false}
 									onStartMonitoring={handleStartMonitoring}
+									onStopMonitoring={stopMonitoring}
 									stats={networkStats[adapters[selectedTab - 1]?.name]}
+									lifetimeState={lifetimeStats[adapters[selectedTab - 1]?.name]}
 								/>
 							)}
 						</Box>
