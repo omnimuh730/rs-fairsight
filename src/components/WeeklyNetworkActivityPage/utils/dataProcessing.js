@@ -72,18 +72,19 @@ export const enhanceDataWithPersistentState = (sessionData, persistentState) => 
 		let hasRealTimeData = false;
 		
 		if (day.date === today) {
-			// For today, use the full cumulative totals which includes all historical data
+			// For today, use the cumulative totals (persistent state is source of truth)
 			dayRealIncoming = currentCumulativeIncoming;
 			dayRealOutgoing = currentCumulativeOutgoing;
 			hasRealTimeData = true;
 			
-			console.log(`📅 Today (${today}) enhanced with real-time data:`, {
+			console.log(`📅 Today (${today}) using persistent state as source of truth:`, {
 				sessionIncoming: day.total_incoming_bytes,
 				sessionOutgoing: day.total_outgoing_bytes,
-				realIncoming: dayRealIncoming,
-				realOutgoing: dayRealOutgoing,
+				persistentIncoming: dayRealIncoming,
+				persistentOutgoing: dayRealOutgoing,
 				incomingMB: Math.round(dayRealIncoming / (1024 * 1024)),
-				outgoingMB: Math.round(dayRealOutgoing / (1024 * 1024))
+				outgoingMB: Math.round(dayRealOutgoing / (1024 * 1024)),
+				note: 'Using persistent state (real-time) as authoritative data source'
 			});
 		} else {
 			console.log(`📅 Past day (${day.date}) using session data:`, {

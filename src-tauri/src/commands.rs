@@ -146,7 +146,7 @@ pub fn get_network_history(start_date: String, end_date: String) -> Result<Vec<D
                 let mut daily_lifetime_incoming = 0u64;
                 let mut daily_lifetime_outgoing = 0u64;
                 
-                for (adapter_name, state) in &persistent_states {
+                for (_adapter_name, state) in &persistent_states {
                     // Check if this adapter had activity on this date
                     if let Some(first_time) = state.first_recorded_time {
                         let summary_timestamp = chrono::NaiveDate::parse_from_str(&summary.date, "%Y-%m-%d")

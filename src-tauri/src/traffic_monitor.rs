@@ -844,7 +844,7 @@ impl TrafficMonitor {
         if let Err(e) = NETWORK_STORAGE.save_session(&session) {
             eprintln!("Failed to save periodic network session: {}", e);
         } else {
-            println!("Periodic network session saved (8 seconds) - Incremental: ↓{}KB ↑{}KB (Total: ↓{}KB ↑{}KB)", 
+            println!("📊 Periodic session saved (8s) - Incremental: ↓{}KB ↑{}KB (Cumulative: ↓{}KB ↑{}KB)", 
                 incremental_incoming / 1024, 
                 incremental_outgoing / 1024,
                 current_stats.total_incoming_bytes / 1024,

@@ -84,6 +84,11 @@ impl NetworkStorageManager {
         daily_summary.total_outgoing_bytes += session.total_outgoing_bytes;
         daily_summary.total_duration += session.duration;
         
+        // Prevent session bloat: if we have too many sessions (>100), consolidate them
+        if daily_summary.sessions.len() > 100 {
+            daily_summary = self.consolidate_sessions(daily_summary)?;
+        }
+        
         // Calculate unique hosts and services
         let mut all_hosts = std::collections::HashSet::new();
         let mut all_services = std::collections::HashSet::new();
@@ -104,6 +109,101 @@ impl NetworkStorageManager {
         self.save_daily_summary(&date, &daily_summary)
     }
 
+    fn consolidate_sessions(&self, mut summary: DailyNetworkSummary) -> Result<DailyNetworkSummary, String> {
+        // Group sessions by adapter and time windows (30-minute chunks)
+        let mut consolidated_sessions = Vec::new();
+        let time_window = 1800; // 30 minutes
+        
+        // Sort sessions by start time
+        summary.sessions.sort_by_key(|s| s.start_time);
+        
+        // Group sessions by adapter
+        let mut adapter_groups: std::collections::HashMap<String, Vec<NetworkSession>> = std::collections::HashMap::new();
+        for session in summary.sessions {
+            adapter_groups.entry(session.adapter_name.clone()).or_insert_with(Vec::new).push(session);
+        }
+        
+        for (adapter, sessions) in adapter_groups {
+            let mut current_group = Vec::new();
+            let mut last_time_window = 0;
+            
+            for session in sessions {
+                let time_window_start = (session.start_time / time_window) * time_window;
+                
+                if time_window_start != last_time_window && !current_group.is_empty() {
+                    // Consolidate the current group
+                    consolidated_sessions.push(self.merge_sessions(&adapter, &current_group)?);
+                    current_group.clear();
+                }
+                
+                current_group.push(session);
+                last_time_window = time_window_start;
+            }
+            
+            if !current_group.is_empty() {
+                consolidated_sessions.push(self.merge_sessions(&adapter, &current_group)?);
+            }
+        }
+        
+        summary.sessions = consolidated_sessions;
+        
+        println!("📊 Consolidated sessions: reduced from {} to {} sessions", 
+            summary.sessions.len() + 100, // Original count before consolidation
+            summary.sessions.len());
+        
+        Ok(summary)
+    }
+    
+    fn merge_sessions(&self, adapter_name: &str, sessions: &[NetworkSession]) -> Result<NetworkSession, String> {
+        if sessions.is_empty() {
+            return Err("Cannot merge empty sessions".to_string());
+        }
+        
+        let first_session = &sessions[0];
+        let last_session = &sessions[sessions.len() - 1];
+        
+        let total_incoming: u64 = sessions.iter().map(|s| s.total_incoming_bytes).sum();
+        let total_outgoing: u64 = sessions.iter().map(|s| s.total_outgoing_bytes).sum();
+        let total_incoming_packets: u64 = sessions.iter().map(|s| s.total_incoming_packets).sum();
+        let total_outgoing_packets: u64 = sessions.iter().map(|s| s.total_outgoing_packets).sum();
+        let total_duration: u64 = sessions.iter().map(|s| s.duration).sum();
+        
+        // Merge hosts and services (keep top entries)
+        let mut all_hosts = Vec::new();
+        let mut all_services = Vec::new();
+        
+        for session in sessions {
+            all_hosts.extend(session.top_hosts.iter().cloned());
+            all_services.extend(session.top_services.iter().cloned());
+        }
+        
+        // Deduplicate and sort hosts
+        all_hosts.sort_by(|a, b| {
+            let total_a = a.incoming_bytes + a.outgoing_bytes;
+            let total_b = b.incoming_bytes + b.outgoing_bytes;
+            total_b.cmp(&total_a)
+        });
+        all_hosts.truncate(10);
+        
+        // Deduplicate and sort services
+        all_services.sort_by(|a, b| b.bytes.cmp(&a.bytes));
+        all_services.truncate(10);
+        
+        Ok(NetworkSession {
+            adapter_name: adapter_name.to_string(),
+            start_time: first_session.start_time,
+            end_time: last_session.end_time,
+            total_incoming_bytes: total_incoming,
+            total_outgoing_bytes: total_outgoing,
+            total_incoming_packets: total_incoming_packets,
+            total_outgoing_packets: total_outgoing_packets,
+            duration: total_duration,
+            traffic_data: Vec::new(), // Clear detailed traffic data for consolidated sessions
+            top_hosts: all_hosts,
+            top_services: all_services,
+        })
+    }
+
     pub fn load_daily_summary(&self, date: &str) -> Result<DailyNetworkSummary, String> {
         let file_path = self.storage_dir.join(format!("network-{}.json", date));
         
@@ -120,7 +220,7 @@ impl NetworkStorageManager {
         Ok(summary)
     }
 
-    fn save_daily_summary(&self, date: &str, summary: &DailyNetworkSummary) -> Result<(), String> {
+    pub fn save_daily_summary(&self, date: &str, summary: &DailyNetworkSummary) -> Result<(), String> {
         let file_path = self.storage_dir.join(format!("network-{}.json", date));
         
         // Create backup before saving if file exists

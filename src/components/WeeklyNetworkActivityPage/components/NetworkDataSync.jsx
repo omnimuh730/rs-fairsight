@@ -116,9 +116,28 @@ const NetworkDataSync = ({ onDataUpdate }) => {
 
 			{dataDiscrepancy && (
 				<Alert severity="warning" sx={{ mb: 2 }}>
-					<Box sx={{ display: 'flex', alignItems: 'center' }}>
-						<Warning sx={{ mr: 1 }} />
-						Data synchronization notice: Real-time monitoring data may be more current than saved sessions.
+					<Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+						<Box sx={{ display: 'flex', alignItems: 'center' }}>
+							<Warning sx={{ mr: 1 }} />
+							Data synchronization notice: Real-time monitoring data is the authoritative source. Session data may show higher values due to incremental saves.
+						</Box>
+						{combined.today_sessions_count > 100 && (
+							<Button
+								variant="outlined"
+								size="small"
+								onClick={async () => {
+									try {
+										const result = await invoke('consolidate_today_sessions');
+										console.log('Session consolidation result:', result);
+										fetchCurrentTotals(); // Refresh data
+									} catch (err) {
+										console.error('Failed to consolidate sessions:', err);
+									}
+								}}
+							>
+								Consolidate Sessions
+							</Button>
+						)}
 					</Box>
 				</Alert>
 			)}
