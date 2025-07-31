@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
-use chrono::{DateTime, Utc, NaiveDate, TimeZone};
+use chrono::{Utc, NaiveDate, TimeZone};
 use crate::traffic_monitor::{TrafficData, NetworkHost, ServiceInfo};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -59,14 +59,46 @@ impl NetworkStorageManager {
     }
 
     pub fn save_session(&self, session: &NetworkSession) -> Result<(), String> {
-        let date = chrono::Local.timestamp_opt(session.start_time as i64, 0)
+        let start = chrono::Local.timestamp_opt(session.start_time as i64, 0)
             .single()
-            .ok_or("Invalid timestamp")?
-            .format("%Y-%m-%d")
-            .to_string();
-        
-        let mut daily_summary = self.load_daily_summary(&date).unwrap_or_else(|_| {
-            DailyNetworkSummary {
+            .ok_or("Invalid start timestamp")?;
+        let end = session.end_time.map(|et| chrono::Local.timestamp_opt(et as i64, 0).single()).flatten();
+        let end = end.unwrap_or(start);
+
+        let mut current_start = start;
+        let current_end = end;
+        let mut remaining_duration = session.duration;
+        let mut remaining_in_bytes = session.total_incoming_bytes;
+        let mut remaining_out_bytes = session.total_outgoing_bytes;
+        let mut remaining_in_packets = session.total_incoming_packets;
+        let mut remaining_out_packets = session.total_outgoing_packets;
+        let traffic_data = session.traffic_data.clone();
+        let top_hosts = session.top_hosts.clone();
+        let top_services = session.top_services.clone();
+
+        let mut result = Ok(());
+
+        // Helper to calculate seconds between two DateTimes
+        fn seconds_between(a: chrono::DateTime<chrono::Local>, b: chrono::DateTime<chrono::Local>) -> u64 {
+            if b > a {
+                (b.timestamp() - a.timestamp()) as u64
+            } else {
+                0
+            }
+        }
+
+        // Split at each midnight boundary
+        while current_start.date_naive() < current_end.date_naive() {
+            let next_midnight = current_start.date_naive().succ_opt().unwrap().and_hms_opt(0, 0, 0).unwrap();
+            let next_midnight_dt = chrono::Local.from_local_datetime(&next_midnight).single().unwrap();
+            let part_duration = seconds_between(current_start, next_midnight_dt);
+            let part_in_bytes = (session.total_incoming_bytes as f64 * part_duration as f64 / session.duration as f64).round() as u64;
+            let part_out_bytes = (session.total_outgoing_bytes as f64 * part_duration as f64 / session.duration as f64).round() as u64;
+            let part_in_packets = (session.total_incoming_packets as f64 * part_duration as f64 / session.duration as f64).round() as u64;
+            let part_out_packets = (session.total_outgoing_packets as f64 * part_duration as f64 / session.duration as f64).round() as u64;
+
+            let date = current_start.format("%Y-%m-%d").to_string();
+            let mut daily_summary = self.load_daily_summary(&date).unwrap_or_else(|_| DailyNetworkSummary {
                 date: date.clone(),
                 sessions: Vec::new(),
                 total_incoming_bytes: 0,
@@ -74,26 +106,83 @@ impl NetworkStorageManager {
                 total_duration: 0,
                 unique_hosts: 0,
                 unique_services: 0,
+            });
+            let split_session = NetworkSession {
+                adapter_name: session.adapter_name.clone(),
+                start_time: current_start.timestamp() as u64,
+                end_time: Some(next_midnight_dt.timestamp() as u64),
+                total_incoming_bytes: part_in_bytes,
+                total_outgoing_bytes: part_out_bytes,
+                total_incoming_packets: part_in_packets,
+                total_outgoing_packets: part_out_packets,
+                duration: part_duration,
+                traffic_data: Vec::new(), // Not splitting traffic_data for now
+                top_hosts: top_hosts.clone(),
+                top_services: top_services.clone(),
+            };
+            daily_summary.sessions.push(split_session);
+            daily_summary.total_incoming_bytes += part_in_bytes;
+            daily_summary.total_outgoing_bytes += part_out_bytes;
+            daily_summary.total_duration += part_duration;
+            if daily_summary.sessions.len() > 100 {
+                daily_summary = self.consolidate_sessions(daily_summary)?;
             }
+            let mut all_hosts = std::collections::HashSet::new();
+            let mut all_services = std::collections::HashSet::new();
+            for sess in &daily_summary.sessions {
+                for host in &sess.top_hosts {
+                    all_hosts.insert(&host.ip);
+                }
+                for service in &sess.top_services {
+                    all_services.insert(format!("{}:{}", service.protocol, service.port));
+                }
+            }
+            daily_summary.unique_hosts = all_hosts.len();
+            daily_summary.unique_services = all_services.len();
+            if let Err(e) = self.save_daily_summary(&date, &daily_summary) {
+                result = Err(e);
+            }
+            // Move to next day
+            current_start = next_midnight_dt;
+            remaining_duration = remaining_duration.saturating_sub(part_duration);
+            remaining_in_bytes = remaining_in_bytes.saturating_sub(part_in_bytes);
+            remaining_out_bytes = remaining_out_bytes.saturating_sub(part_out_bytes);
+            remaining_in_packets = remaining_in_packets.saturating_sub(part_in_packets);
+            remaining_out_packets = remaining_out_packets.saturating_sub(part_out_packets);
+        }
+        // Last part (or only part if not spanning days)
+        let date = current_start.format("%Y-%m-%d").to_string();
+        let mut daily_summary = self.load_daily_summary(&date).unwrap_or_else(|_| DailyNetworkSummary {
+            date: date.clone(),
+            sessions: Vec::new(),
+            total_incoming_bytes: 0,
+            total_outgoing_bytes: 0,
+            total_duration: 0,
+            unique_hosts: 0,
+            unique_services: 0,
         });
-
-        // Add new session
-        daily_summary.sessions.push(session.clone());
-        
-        // Update totals
-        daily_summary.total_incoming_bytes += session.total_incoming_bytes;
-        daily_summary.total_outgoing_bytes += session.total_outgoing_bytes;
-        daily_summary.total_duration += session.duration;
-        
-        // Prevent session bloat: if we have too many sessions (>100), consolidate them
+        let split_session = NetworkSession {
+            adapter_name: session.adapter_name.clone(),
+            start_time: current_start.timestamp() as u64,
+            end_time: Some(current_end.timestamp() as u64),
+            total_incoming_bytes: remaining_in_bytes,
+            total_outgoing_bytes: remaining_out_bytes,
+            total_incoming_packets: remaining_in_packets,
+            total_outgoing_packets: remaining_out_packets,
+            duration: remaining_duration,
+            traffic_data,
+            top_hosts,
+            top_services,
+        };
+        daily_summary.sessions.push(split_session);
+        daily_summary.total_incoming_bytes += remaining_in_bytes;
+        daily_summary.total_outgoing_bytes += remaining_out_bytes;
+        daily_summary.total_duration += remaining_duration;
         if daily_summary.sessions.len() > 100 {
             daily_summary = self.consolidate_sessions(daily_summary)?;
         }
-        
-        // Calculate unique hosts and services
         let mut all_hosts = std::collections::HashSet::new();
         let mut all_services = std::collections::HashSet::new();
-        
         for sess in &daily_summary.sessions {
             for host in &sess.top_hosts {
                 all_hosts.insert(&host.ip);
@@ -102,12 +191,12 @@ impl NetworkStorageManager {
                 all_services.insert(format!("{}:{}", service.protocol, service.port));
             }
         }
-        
         daily_summary.unique_hosts = all_hosts.len();
         daily_summary.unique_services = all_services.len();
-
-        // Save updated daily summary
-        self.save_daily_summary(&date, &daily_summary)
+        if let Err(e) = self.save_daily_summary(&date, &daily_summary) {
+            result = Err(e);
+        }
+        result
     }
 
     fn consolidate_sessions(&self, mut summary: DailyNetworkSummary) -> Result<DailyNetworkSummary, String> {
