@@ -3,6 +3,40 @@
 version = 4
 
 [[package]]
+name = "TinkerTicker"
+version = "1.0.0"
+dependencies = [
+ "axum",
+ "chrono",
+ "cocoa",
+ "core-foundation",
+ "core-graphics",
+ "dashmap",
+ "dirs 5.0.1",
+ "dns-lookup",
+ "etherparse",
+ "foreign-types-shared",
+ "hex",
+ "lazy_static",
+ "objc",
+ "once_cell",
+ "parking_lot",
+ "pcap",
+ "rand 0.9.0",
+ "ring",
+ "serde",
+ "serde_json",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-autostart",
+ "tauri-plugin-opener",
+ "tauri-plugin-single-instance",
+ "tokio",
+ "tower-http",
+ "winapi",
+]
+
+[[package]]
 name = "addr2line"
 version = "0.24.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3287,40 +3321,6 @@ dependencies = [
  "libc",
  "untrusted",
  "windows-sys 0.52.0",
-]
-
-[[package]]
-name = "rs-fairsight"
-version = "1.0.0"
-dependencies = [
- "axum",
- "chrono",
- "cocoa",
- "core-foundation",
- "core-graphics",
- "dashmap",
- "dirs 5.0.1",
- "dns-lookup",
- "etherparse",
- "foreign-types-shared",
- "hex",
- "lazy_static",
- "objc",
- "once_cell",
- "parking_lot",
- "pcap",
- "rand 0.9.0",
- "ring",
- "serde",
- "serde_json",
- "tauri",
- "tauri-build",
- "tauri-plugin-autostart",
- "tauri-plugin-opener",
- "tauri-plugin-single-instance",
- "tokio",
- "tower-http",
- "winapi",
 ]
 
 [[package]]

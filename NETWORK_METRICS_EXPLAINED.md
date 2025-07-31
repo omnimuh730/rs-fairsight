@@ -1,6 +1,6 @@
 # Network Monitoring Metrics Explained
 
-This document explains all the metrics and terminology used in the **Traffic Monitor** and **Network Activity** tabs of rs-fairsight.
+This document explains all the metrics and terminology used in the **Traffic Monitor** and **Network Activity** tabs of TinkerTicker.
 
 ## 📊 **Core Traffic Metrics**
 
@@ -225,4 +225,4 @@ This document explains all the metrics and terminology used in the **Traffic Mon
 
 ---
 
-*This documentation covers all metrics displayed in rs-fairsight's network monitoring features. For technical support or questions, refer to the main README.md file.*
+*This documentation covers all metrics displayed in TinkerTicker's network monitoring features. For technical support or questions, refer to the main README.md file.*

@@ -269,7 +269,7 @@ export default function ChangeLogsPage() {
 					transition: 'color 0.3s ease'
 				}
 			}}>
-				Track the evolution of RS-FairSight through its major releases
+				Track the evolution of TinkerTicker through its major releases
 			</Typography>
 
 			<Timeline position="alternate">

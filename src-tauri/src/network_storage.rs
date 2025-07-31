@@ -59,7 +59,8 @@ impl NetworkStorageManager {
     }
 
     pub fn save_session(&self, session: &NetworkSession) -> Result<(), String> {
-        let date = DateTime::<Utc>::from_timestamp(session.start_time as i64, 0)
+        let date = chrono::Local.timestamp_opt(session.start_time as i64, 0)
+            .single()
             .ok_or("Invalid timestamp")?
             .format("%Y-%m-%d")
             .to_string();

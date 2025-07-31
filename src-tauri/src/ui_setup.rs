@@ -33,7 +33,7 @@ pub fn setup_tray_and_window_events(app: &mut tauri::App) -> Result<(), Box<dyn 
 
     let _tray = TrayIconBuilder::with_id("main_tray")
         .icon(include_image!("icons/icon.png"))
-        .tooltip("rs-Fairsight")
+        .tooltip("TinkerTicker")
         .menu(&menu)
         .on_tray_icon_event(|tray, event| {
             if let TrayIconEvent::Click { button, .. } = event {

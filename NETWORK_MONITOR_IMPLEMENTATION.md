@@ -1,7 +1,7 @@
 # Network Traffic Monitoring Implementation - Phase 1
 
 ## Overview
-This document describes the implementation of network traffic monitoring functionality in rs-fairsight, inspired by Sniffnet's network adapter selection interface.
+This document describes the implementation of network traffic monitoring functionality in TinkerTicker, inspired by Sniffnet's network adapter selection interface.
 
 ## What Has Been Implemented
 

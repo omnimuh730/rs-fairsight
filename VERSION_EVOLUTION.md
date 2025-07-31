@@ -1,13 +1,13 @@
-# RS-FairSight Version Evolution
+# TinkerTicker Version Evolution
 
-RS-FairSight is a cross-platform time tracking and monitoring application built with Tauri (Rust) and React. This document outlines the evolution of the application through its major version releases.
+TinkerTicker is a cross-platform time tracking and monitoring application built with Tauri (Rust) and React. This document outlines the evolution of the application through its major version releases.
 
 ## 🚀 Version Timeline
 
 ### v0.1.0 - Foundation (March 3-9, 2025)
 **Commits: 224ebb6 → 2802288**
 
-The initial foundation of RS-FairSight was laid with core infrastructure and basic functionality:
+The initial foundation of TinkerTicker was laid with core infrastructure and basic functionality:
 
 #### Key Features Introduced:
 - **Initial Project Setup** (Mar 3): Basic Rust backend and React frontend initialization
@@ -117,7 +117,7 @@ Complete architectural overhaul with advanced monitoring capabilities:
 ### v1.0.0 - Network Monitoring & Production Release (July 24-25, 2025)
 **Commits: 0d3b850 → 0755c91**
 
-The milestone v1.0.0 release introducing comprehensive network monitoring capabilities and marking the production-ready state of RS-FairSight:
+The milestone v1.0.0 release introducing comprehensive network monitoring capabilities and marking the production-ready state of TinkerTicker:
 
 #### Key Features Introduced:
 - **Advanced Network Traffic Monitoring** (Jul 24): Real-time packet capture and network adapter discovery
