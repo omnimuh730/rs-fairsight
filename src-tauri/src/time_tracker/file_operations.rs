@@ -3,7 +3,7 @@ use std::io;
 use std::path::Path;
 use std::sync::atomic::Ordering;
 
-use crate::encryption::{encrypt_string, decrypt_string, KEY};
+use crate::encryption::{encrypt_string, KEY};
 use crate::file_utils::atomic_write_with_backup;
 use super::types::{BACKUP_COUNTER, BACKUP_FREQUENCY};
 

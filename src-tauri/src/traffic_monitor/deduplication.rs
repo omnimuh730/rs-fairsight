@@ -29,14 +29,3 @@ pub fn register_packet(signature: String, adapter_name: String) {
     
     PACKET_DEDUP.insert(signature, (timestamp, adapter_name));
 }
-
-pub fn cleanup_old_signatures() {
-    let now = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_secs();
-    
-    let cutoff = now - 10; // Remove signatures older than 10 seconds
-    
-    PACKET_DEDUP.retain(|_k, v| v.0 > cutoff);
-}

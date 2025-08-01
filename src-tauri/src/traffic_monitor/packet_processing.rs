@@ -8,6 +8,7 @@ use parking_lot::RwLock;
 
 use super::types::{NetworkHost, ServiceInfo, MonitoringStats, TrafficData};
 use super::deduplication::{create_packet_signature, is_duplicate_packet, register_packet};
+use super::service_analysis::process_service_from_packet;
 
 pub fn create_packet_capture(adapter_name: &str) -> Option<Capture<pcap::Active>> {
     if let Ok(devices) = Device::list() {
@@ -106,7 +107,9 @@ pub async fn process_real_packet(
         update_host_stats(hosts, &src_ip, &dst_ip, packet_size, is_outgoing, now).await;
 
         // Update services
-        update_service_stats(services, &protocol, dst_port, packet_size).await;
+        if dst_port != 0 {
+            process_service_from_packet(&protocol, dst_port, packet_size, services);
+        }
 
         // Update overall stats
         update_overall_stats(stats, packet_size, is_outgoing).await;
@@ -127,22 +130,7 @@ async fn update_host_stats(
     let target_ip = if is_outgoing { dst_ip } else { src_ip };
     let target_ip_str = target_ip.to_string();
 
-    hosts.entry(target_ip_str.clone()).or_insert_with(|| {
-        NetworkHost {
-            ip: target_ip_str.clone(),
-            hostname: None,
-            domain: None,
-            country: None,
-            country_code: None,
-            asn: None,
-            incoming_bytes: 0,
-            outgoing_bytes: 0,
-            incoming_packets: 0,
-            outgoing_packets: 0,
-            first_seen: now,
-            last_seen: now,
-        }
-    }).and_modify(|host| {
+    hosts.entry(target_ip_str.clone()).and_modify(|host| {
         if is_outgoing {
             host.outgoing_bytes += packet_size;
             host.outgoing_packets += 1;
@@ -151,32 +139,21 @@ async fn update_host_stats(
             host.incoming_packets += 1;
         }
         host.last_seen = now;
-    });
-}
-
-async fn update_service_stats(
-    services: &Arc<DashMap<String, ServiceInfo>>,
-    protocol: &str,
-    port: u16,
-    packet_size: u64,
-) {
-    if port == 0 {
-        return; // Skip unknown ports
-    }
-
-    let service_key = format!("{}:{}", protocol, port);
-    
-    services.entry(service_key.clone()).or_insert_with(|| {
-        ServiceInfo {
-            protocol: protocol.to_string(),
-            port,
-            service_name: get_service_name(port, protocol),
-            bytes: 0,
-            packets: 0,
+    }).or_insert_with(|| {
+        NetworkHost {
+            ip: target_ip_str.clone(),
+            hostname: None,
+            domain: None,
+            country: None,
+            country_code: None,
+            asn: None,
+            incoming_bytes: if is_outgoing { 0 } else { packet_size },
+            outgoing_bytes: if is_outgoing { packet_size } else { 0 },
+            incoming_packets: if is_outgoing { 0 } else { 1 },
+            outgoing_packets: if is_outgoing { 1 } else { 0 },
+            first_seen: now,
+            last_seen: now,
         }
-    }).and_modify(|service| {
-        service.bytes += packet_size;
-        service.packets += 1;
     });
 }
 
@@ -198,7 +175,7 @@ async fn update_overall_stats(
 async fn update_traffic_history(
     traffic_history: &Arc<std::sync::Mutex<Vec<TrafficData>>>,
     stats: &Arc<RwLock<MonitoringStats>>,
-    start_time: u64,
+    _start_time: u64,
     now: u64,
 ) {
     let stats_guard = stats.read();
@@ -241,27 +218,5 @@ fn is_outgoing_traffic(ip: &IpAddr) -> bool {
             segments[0] == 0xfd00 ||          // Unique local
             *ipv6 == std::net::Ipv6Addr::LOCALHOST     // Loopback
         }
-    }
-}
-
-fn get_service_name(port: u16, protocol: &str) -> Option<String> {
-    match (port, protocol) {
-        (80, "TCP") => Some("HTTP".to_string()),
-        (443, "TCP") => Some("HTTPS".to_string()),
-        (22, "TCP") => Some("SSH".to_string()),
-        (21, "TCP") => Some("FTP".to_string()),
-        (25, "TCP") => Some("SMTP".to_string()),
-        (53, _) => Some("DNS".to_string()),
-        (110, "TCP") => Some("POP3".to_string()),
-        (143, "TCP") => Some("IMAP".to_string()),
-        (993, "TCP") => Some("IMAPS".to_string()),
-        (995, "TCP") => Some("POP3S".to_string()),
-        (3389, "TCP") => Some("RDP".to_string()),
-        (5432, "TCP") => Some("PostgreSQL".to_string()),
-        (3306, "TCP") => Some("MySQL".to_string()),
-        (1433, "TCP") => Some("MSSQL".to_string()),
-        (6379, "TCP") => Some("Redis".to_string()),
-        (27017, "TCP") => Some("MongoDB".to_string()),
-        _ => None,
     }
 }
