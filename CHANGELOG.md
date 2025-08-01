@@ -5,7 +5,56 @@ All notable changes to InnoMonitor will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [2.0.0] - 2025-01-XX (Upcoming)
+## [1.1.0] - 2025-08-01 
+
+### 🏗️ **Documentation & CI/CD**
+- **NEW**: Comprehensive documentation restructure with organized folder structure
+- **NEW**: GitHub Actions CI/CD pipeline with cross-platform builds (Windows, macOS, Linux)
+- **NEW**: Automated testing workflow with Rust compilation checks
+- **NEW**: Release workflow with tag-based automated releases
+- **FIXED**: npm dependency resolution issue (`system-architecture` package conflict)
+- **IMPROVED**: Documentation organization with clear categorization
+  - Architecture documentation in `docs/architecture/`
+  - Development guides in `docs/development/`
+  - User guides in `docs/guides/`
+- **NEW**: Version tagging system with historical commit labeling
+- **IMPROVED**: README.md with comprehensive feature overview and navigation links
+
+### 🔧 **Development Infrastructure**
+- **FIXED**: Package.json dependency conflicts preventing CI builds
+- **NEW**: `npm ci` usage for consistent, faster dependency installation
+- **NEW**: Proper libpcap dependencies for Linux builds
+- **IMPROVED**: Branch name consistency (main → master)
+- **NEW**: Cross-platform build matrix for automated releases
+
+### 🌐 **Network Monitoring Enhancements**
+- **REMOVED**: Simulation fallback completely eliminated for data authenticity
+- **IMPROVED**: Retry mechanism for packet capture instead of mock data
+- **NEW**: Clear user feedback when packet capture is unavailable
+- **FIXED**: Traffic monitor modular refactoring (993 lines → 9 focused modules)
+- **ENHANCED**: Host analysis with DNS resolution and geolocation enabled
+- **IMPROVED**: Real vs simulated data flow documentation
+
+### 📋 **Architecture Improvements**
+- **REFACTORED**: Traffic monitor split into focused modules:
+  - `packet_processing.rs` - Real packet capture and processing
+  - `host_analysis.rs` - DNS/GeoIP capabilities  
+  - `service_analysis.rs` - Service and port identification
+  - `deduplication.rs` - Packet deduplication logic
+  - `session_manager.rs` - Session management
+  - `types.rs` - Shared data structures
+- **REMOVED**: Simulation module completely eliminated
+- **IMPROVED**: Clear separation between real network data and fallback behavior
+
+### 📚 **Documentation Added/Updated**
+- **NEW**: `ARCHITECTURE.md` - System design overview
+- **NEW**: `NETWORK_MONITOR_IMPLEMENTATION.md` - Deep dive into network monitoring
+- **NEW**: `PACKET_DEDUPLICATION_LOGIC.md` - Advanced deduplication algorithms
+- **NEW**: `REAL_VS_SIMULATION_ANALYSIS.md` - Data authenticity documentation
+- **UPDATED**: `VERSION_EVOLUTION.md` - Complete development timeline
+- **NEW**: Comprehensive README with features, quick start, and navigation
+
+## [1.0.0] - 2025-07-XX
 
 ### 🏗️ **Major Architecture Refactoring**
 - **BREAKING**: Completely modularized backend architecture
