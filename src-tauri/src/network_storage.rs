@@ -37,25 +37,42 @@ pub struct NetworkStorageManager {
 
 impl NetworkStorageManager {
     pub fn new() -> Result<Self, String> {
-        // Use the same base directory as activity logging: C:\fairsight-log
-        // Network data will be stored in C:\fairsight-network-log
-        let storage_dir = std::path::Path::new("C:\\fairsight-network-log");
-        let backup_dir = std::path::Path::new("C:\\fairsight-network-backup");
-        
-        if !storage_dir.exists() {
-            fs::create_dir_all(&storage_dir)
-                .map_err(|e| format!("Failed to create network storage directory: {}", e))?;
+        #[cfg(target_os = "macos")]
+        {
+            use dirs;
+            let home_dir = dirs::home_dir().ok_or("Failed to get home directory")?;
+            let storage_dir = home_dir.join("Documents").join("rs-fairsight-network-log");
+            let backup_dir = home_dir.join("Documents").join("rs-fairsight-network-backup");
+            if !storage_dir.exists() {
+                fs::create_dir_all(&storage_dir)
+                    .map_err(|e| format!("Failed to create network storage directory: {}", e))?;
+            }
+            if !backup_dir.exists() {
+                fs::create_dir_all(&backup_dir)
+                    .map_err(|e| format!("Failed to create network backup directory: {}", e))?;
+            }
+            return Ok(Self {
+                storage_dir,
+                backup_dir,
+            });
         }
-        
-        if !backup_dir.exists() {
-            fs::create_dir_all(&backup_dir)
-                .map_err(|e| format!("Failed to create network backup directory: {}", e))?;
+        #[cfg(not(target_os = "macos"))]
+        {
+            let storage_dir = std::path::Path::new("C:\\fairsight-network-log");
+            let backup_dir = std::path::Path::new("C:\\fairsight-network-backup");
+            if !storage_dir.exists() {
+                fs::create_dir_all(&storage_dir)
+                    .map_err(|e| format!("Failed to create network storage directory: {}", e))?;
+            }
+            if !backup_dir.exists() {
+                fs::create_dir_all(&backup_dir)
+                    .map_err(|e| format!("Failed to create network backup directory: {}", e))?;
+            }
+            Ok(Self {
+                storage_dir: storage_dir.to_path_buf(),
+                backup_dir: backup_dir.to_path_buf(),
+            })
         }
-        
-        Ok(Self { 
-            storage_dir: storage_dir.to_path_buf(),
-            backup_dir: backup_dir.to_path_buf(),
-        })
     }
 
     pub fn save_session(&self, session: &NetworkSession) -> Result<(), String> {
