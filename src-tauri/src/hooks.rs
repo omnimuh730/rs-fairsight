@@ -198,9 +198,7 @@ fn setup_macos_hooks_inner() -> Result<(), String> {
         ).map_err(|e| format!("Failed to create event tap: {:?}", e))?;
 
         // Check if the event tap is enabled
-        if !event_tap.is_enabled() {
-            return Err("Event tap is not enabled (accessibility permissions may be required)".to_string());
-        }
+        event_tap.enable();
 
         // Get the raw mach port pointer using as_concrete_TypeRef
         let mach_port: CFMachPortRef = event_tap.mach_port.as_concrete_TypeRef();
