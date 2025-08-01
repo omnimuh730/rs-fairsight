@@ -49,7 +49,7 @@ jobs:
           echo "Windows pcap support should be available"
 
       - name: Install app dependencies and build frontend
-        run: npm install && npm run build
+        run: npm ci && npm run build
         working-directory: ${{ github.workspace }}
 
       - name: Build Tauri app
