@@ -2,7 +2,7 @@
 
 ## Overview
 
-TinkerTicker implements intelligent packet deduplication to solve the macOS network monitoring amplification problem. This system allows auto-monitoring of ALL network adapters simultaneously while preventing duplicate packet counting that occurs when multiple adapters capture the same network traffic.
+InnoMonitor implements intelligent packet deduplication to solve the macOS network monitoring amplification problem. This system allows auto-monitoring of ALL network adapters simultaneously while preventing duplicate packet counting that occurs when multiple adapters capture the same network traffic.
 
 ## The Problem
 

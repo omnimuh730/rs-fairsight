@@ -1,4 +1,4 @@
-// Centralized State Management System for TinkerTicker
+// Centralized State Management System for InnoMonitor
 // This replaces the distributed state handling across multiple files
 
 use serde::{Deserialize, Serialize};
@@ -97,14 +97,14 @@ impl StateManager {
         let base_dir = dirs::home_dir()
             .ok_or("Cannot find home directory")?
             .join("Documents")
-            .join("TinkerTicker");
+            .join("InnoMonitor");
         
         #[cfg(target_os = "linux")]
         let base_dir = dirs::home_dir()
             .ok_or("Cannot find home directory")?
             .join(".local")
             .join("share")
-            .join("tinkerticker");
+            .join("innomonitor");
 
         if !base_dir.exists() {
             fs::create_dir_all(&base_dir)

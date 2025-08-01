@@ -1,5 +1,5 @@
 [package]
-name = "TinkerTicker"
+name = "InnoMonitor"
 version = "1.0.0"
 description = "A Tauri App"
 authors = ["you"]
@@ -53,8 +53,3 @@ parking_lot = "0.12" # For better mutexes
 dashmap = "6.1"      # For concurrent hashmaps
 dns-lookup = "2.0"   # For reverse DNS resolution
 etherparse = "0.15"  # For packet parsing
-
-[target.x86_64-pc-windows-msvc]
-rustflags = [
-  "-L", "C:/npcap-sdk/Lib"
-]

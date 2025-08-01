@@ -1,7 +1,7 @@
 # macOS Network Monitoring Fix Summary
 
 ## Problem Identified
-The TinkerTicker network monitoring was experiencing **amplified traffic counts on macOS** due to monitoring multiple network adapters simultaneously. This caused duplicate packet counting because:
+The InnoMonitor network monitoring was experiencing **amplified traffic counts on macOS** due to monitoring multiple network adapters simultaneously. This caused duplicate packet counting because:
 
 1. **Multiple adapters** were being monitored concurrently
 2. **Overlapping interfaces** on macOS (like bridge adapters, virtual interfaces) were capturing the same packets

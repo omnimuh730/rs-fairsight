@@ -1,6 +1,6 @@
-# TinkerTicker
+# InnoMonitor
 
-A powerful cross-platform time tracking and monitoring application built with Tauri (Rust) and React. TinkerTicker provides comprehensive activity monitoring, health tracking, and data management with a beautiful, intuitive interface.
+A powerful cross-platform time tracking and monitoring application built with Tauri (Rust) and React. InnoMonitor provides comprehensive activity monitoring, health tracking, and data management with a beautiful, intuitive interface.
 
 ## 🚀 Features
 
@@ -18,7 +18,7 @@ A powerful cross-platform time tracking and monitoring application built with Ta
 
 ## 📋 Version History
 
-For detailed information about the evolution of TinkerTicker, see [VERSION_EVOLUTION.md](./VERSION_EVOLUTION.md).
+For detailed information about the evolution of InnoMonitor, see [VERSION_EVOLUTION.md](./VERSION_EVOLUTION.md).
 
 **Current Version**: v1.0.0 (July 2025)
 

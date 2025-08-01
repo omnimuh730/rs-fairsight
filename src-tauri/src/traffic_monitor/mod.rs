@@ -1,7 +1,6 @@
 pub mod types;
 pub mod deduplication;
 pub mod packet_processing;
-pub mod simulation;
 pub mod monitor;
 pub mod host_analysis;
 pub mod service_analysis;

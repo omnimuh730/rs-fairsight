@@ -1,8 +1,8 @@
-# TinkerTicker User Guide
+# InnoMonitor User Guide
 
-## Welcome to TinkerTicker! 🎯
+## Welcome to InnoMonitor! 🎯
 
-TinkerTicker is your comprehensive system monitoring companion that provides real-time insights into your network activity and computer usage patterns. This guide will help you get the most out of the application.
+InnoMonitor is your comprehensive system monitoring companion that provides real-time insights into your network activity and computer usage patterns. This guide will help you get the most out of the application.
 
 ## Table of Contents
 1. [Getting Started](#getting-started)
@@ -28,19 +28,19 @@ TinkerTicker is your comprehensive system monitoring companion that provides rea
 
 #### macOS
 1. Download the `.dmg` file from the releases page
-2. Open the disk image and drag TinkerTicker to Applications
+2. Open the disk image and drag InnoMonitor to Applications
 3. Grant network monitoring permissions when first launched
 4. Allow through Gatekeeper if prompted
 
 #### Linux
 1. Download the `.AppImage` file
-2. Make it executable: `chmod +x TinkerTicker.AppImage`
+2. Make it executable: `chmod +x InnoMonitor.AppImage`
 3. Install libpcap: `sudo apt-get install libpcap-dev` (Ubuntu/Debian)
-4. Run with: `./TinkerTicker.AppImage`
+4. Run with: `./InnoMonitor.AppImage`
 
 ### First Launch
 
-When you first open TinkerTicker, you'll be guided through a quick setup:
+When you first open InnoMonitor, you'll be guided through a quick setup:
 
 1. **Grant Permissions**: Allow network monitoring access
 2. **Select Adapters**: Choose which network interfaces to monitor
@@ -91,7 +91,7 @@ Export your data for external analysis
 
 ### Understanding Network Traffic
 
-TinkerTicker monitors all network activity on your selected adapters and provides detailed insights:
+InnoMonitor monitors all network activity on your selected adapters and provides detailed insights:
 
 #### **What Gets Tracked**
 - ✅ All incoming and outgoing data packets
@@ -137,7 +137,7 @@ Each external server you connect to is tracked with:
 
 ### VPN Detection
 
-TinkerTicker intelligently handles VPN connections:
+InnoMonitor intelligently handles VPN connections:
 - **Automatic Detection**: Recognizes when VPN is active
 - **Adapter Switching**: Follows traffic through VPN interfaces
 - **Geographic Accuracy**: Shows VPN server location, not masked location
@@ -149,7 +149,7 @@ TinkerTicker intelligently handles VPN connections:
 
 ### How Activity Detection Works
 
-TinkerTicker uses intelligent detection to understand your computer usage:
+InnoMonitor uses intelligent detection to understand your computer usage:
 
 #### **Active Periods**
 Detected when you're:
@@ -242,9 +242,9 @@ Detected when:
 ### Storage & Backup
 
 #### **Data Location**
-- **Windows**: `C:\Users\[Username]\Documents\TinkerTicker`
-- **macOS**: `~/Documents/TinkerTicker`
-- **Linux**: `~/.local/share/tinkerticker`
+- **Windows**: `C:\Users\[Username]\Documents\InnoMonitor`
+- **macOS**: `~/Documents/InnoMonitor`
+- **Linux**: `~/.local/share/innomonitor`
 
 #### **Backup Settings**
 - **Automatic Backups**: Daily backup creation
@@ -265,7 +265,7 @@ Detected when:
 4. **Regular Restarts**: Restart monitoring if you notice gaps in data
 
 #### **Activity Tracking**
-1. **Consistent Usage**: Keep TinkerTicker running for accurate patterns
+1. **Consistent Usage**: Keep InnoMonitor running for accurate patterns
 2. **Calibrate Sensitivity**: Adjust idle detection to match your work style
 3. **Review Reports Regularly**: Check weekly summaries for insights
 4. **Set Realistic Goals**: Use data to set achievable productivity targets
@@ -307,12 +307,12 @@ Detected when:
 #### **"No Network Data Appearing"**
 
 **Possible Causes & Solutions**:
-1. **Permissions**: Ensure TinkerTicker has administrator/root access
+1. **Permissions**: Ensure InnoMonitor has administrator/root access
 2. **Packet Capture Library**: 
    - Windows: Install/reinstall Npcap
    - macOS: Grant Full Disk Access in Security & Privacy
    - Linux: Install libpcap-dev and add user to wireshark group
-3. **Firewall/Antivirus**: Add TinkerTicker to exceptions
+3. **Firewall/Antivirus**: Add InnoMonitor to exceptions
 4. **Adapter Selection**: Verify correct adapters are selected
 
 #### **"Application Won't Start"**
@@ -355,7 +355,7 @@ Detected when:
 #### **Reporting Bugs**
 Include this information:
 - Operating system and version
-- TinkerTicker version
+- InnoMonitor version
 - Steps to reproduce the issue
 - Error messages (if any)
 - Log files from the data directory
@@ -373,27 +373,27 @@ We welcome suggestions! Consider:
 
 ### General Usage
 
-**Q: Does TinkerTicker slow down my internet?**
-A: No, TinkerTicker only monitors traffic passively and doesn't affect your connection speed.
+**Q: Does InnoMonitor slow down my internet?**
+A: No, InnoMonitor only monitors traffic passively and doesn't affect your connection speed.
 
-**Q: Can I use TinkerTicker with a VPN?**
-A: Yes! TinkerTicker automatically detects and properly monitors VPN connections.
+**Q: Can I use InnoMonitor with a VPN?**
+A: Yes! InnoMonitor automatically detects and properly monitors VPN connections.
 
-**Q: How much disk space does TinkerTicker use?**
+**Q: How much disk space does InnoMonitor use?**
 A: Typically 1-5MB per day of monitoring data, with automatic cleanup of old files.
 
 **Q: Can I monitor multiple computers?**
-A: Currently, TinkerTicker monitors one computer per installation. Multi-device support is planned for future versions.
+A: Currently, InnoMonitor monitors one computer per installation. Multi-device support is planned for future versions.
 
 ### Privacy & Security
 
-**Q: What data does TinkerTicker collect?**
+**Q: What data does InnoMonitor collect?**
 A: Only metadata about network connections and activity timing. No personal content, passwords, or communications are ever captured.
 
 **Q: Is my data sent to the internet?**
-A: No, all data stays on your local device. TinkerTicker has no online components or data transmission.
+A: No, all data stays on your local device. InnoMonitor has no online components or data transmission.
 
-**Q: Can employers see my TinkerTicker data?**
+**Q: Can employers see my InnoMonitor data?**
 A: Only if they have physical access to your device and your encryption keys. The data is encrypted and stored locally.
 
 **Q: How secure is the stored data?**
@@ -401,21 +401,21 @@ A: Data is encrypted with AES-256 encryption and stored locally on your device w
 
 ### Technical Questions
 
-**Q: Why does TinkerTicker need administrator privileges?**
+**Q: Why does InnoMonitor need administrator privileges?**
 A: To access low-level network interfaces for packet capture, which requires elevated permissions on all operating systems.
 
-**Q: Can I run TinkerTicker on a server or headless system?**
-A: Currently, TinkerTicker requires a graphical interface. A headless version is being considered for future releases.
+**Q: Can I run InnoMonitor on a server or headless system?**
+A: Currently, InnoMonitor requires a graphical interface. A headless version is being considered for future releases.
 
-**Q: Does TinkerTicker work with Docker or virtual machines?**
+**Q: Does InnoMonitor work with Docker or virtual machines?**
 A: Yes, but you may need to configure network access and permissions appropriately for the virtualized environment.
 
-**Q: Can I automate TinkerTicker or access data programmatically?**
+**Q: Can I automate InnoMonitor or access data programmatically?**
 A: Data files are in JSON format and can be accessed programmatically. A formal API is planned for future versions.
 
 ### Data Management
 
-**Q: How do I backup my TinkerTicker data?**
+**Q: How do I backup my InnoMonitor data?**
 A: Data is automatically backed up daily. You can also manually copy the data directory or use the export feature.
 
 **Q: Can I import data from other monitoring tools?**
@@ -444,6 +444,6 @@ A: Yes, use the export feature to generate CSV files compatible with spreadsheet
 
 ---
 
-*Thank you for using TinkerTicker! We're committed to providing you with powerful, privacy-focused monitoring tools that help you understand and optimize your digital activities.*
+*Thank you for using InnoMonitor! We're committed to providing you with powerful, privacy-focused monitoring tools that help you understand and optimize your digital activities.*
 
 **Version**: 2.0.0 | **Last Updated**: January 2025

@@ -1,8 +1,8 @@
-# TinkerTicker Architecture
+# InnoMonitor Architecture
 
 ## Current System Overview
 
-TinkerTicker is a network and activity monitoring application built with Tauri (Rust backend + React frontend).
+InnoMonitor is a network and activity monitoring application built with Tauri (Rust backend + React frontend).
 
 ### Core Components
 

@@ -9,6 +9,7 @@ use parking_lot::RwLock;
 use super::types::{NetworkHost, ServiceInfo, MonitoringStats, TrafficData};
 use super::deduplication::{create_packet_signature, is_duplicate_packet, register_packet};
 use super::service_analysis::process_service_from_packet;
+use super::host_analysis::process_host_from_packet;
 
 pub fn create_packet_capture(adapter_name: &str) -> Option<Capture<pcap::Active>> {
     if let Ok(devices) = Device::list() {
@@ -27,19 +28,19 @@ pub fn create_packet_capture(adapter_name: &str) -> Option<Capture<pcap::Active>
                             return Some(cap);
                         }
                         Err(e) => {
-                            eprintln!("Failed to open capture on {}: {}. Falling back to simulation.", adapter_name, e);
+                            eprintln!("Failed to open capture on {}: {}. Will retry later.", adapter_name, e);
                         }
                     }
                 }
                 Err(e) => {
-                    eprintln!("Failed to create capture from device {}: {}. Falling back to simulation.", adapter_name, e);
+                    eprintln!("Failed to create capture from device {}: {}. Will retry later.", adapter_name, e);
                 }
             }
         } else {
-            eprintln!("Device {} not found. Falling back to simulation.", adapter_name);
+            eprintln!("Device {} not found. Will retry later.", adapter_name);
         }
     } else {
-        eprintln!("Failed to list devices. Falling back to simulation.");
+        eprintln!("Failed to list devices. Will retry later.");
     }
     None
 }
@@ -103,8 +104,9 @@ pub async fn process_real_packet(
         let packet_size = packet.header.len as u64;
         let is_outgoing = is_outgoing_traffic(&src_ip);
 
-        // Update hosts
-        update_host_stats(hosts, &src_ip, &dst_ip, packet_size, is_outgoing, now).await;
+        // Update hosts with enhanced analysis (DNS, GeoIP, domains)
+        let target_ip = if is_outgoing { &dst_ip } else { &src_ip };
+        process_host_from_packet(target_ip, packet_size, is_outgoing, hosts, now).await;
 
         // Update services
         if dst_port != 0 {
@@ -117,44 +119,6 @@ pub async fn process_real_packet(
         // Update traffic history
         update_traffic_history(traffic_history, stats, start_time, now).await;
     }
-}
-
-async fn update_host_stats(
-    hosts: &Arc<DashMap<String, NetworkHost>>,
-    src_ip: &IpAddr,
-    dst_ip: &IpAddr,
-    packet_size: u64,
-    is_outgoing: bool,
-    now: u64,
-) {
-    let target_ip = if is_outgoing { dst_ip } else { src_ip };
-    let target_ip_str = target_ip.to_string();
-
-    hosts.entry(target_ip_str.clone()).and_modify(|host| {
-        if is_outgoing {
-            host.outgoing_bytes += packet_size;
-            host.outgoing_packets += 1;
-        } else {
-            host.incoming_bytes += packet_size;
-            host.incoming_packets += 1;
-        }
-        host.last_seen = now;
-    }).or_insert_with(|| {
-        NetworkHost {
-            ip: target_ip_str.clone(),
-            hostname: None,
-            domain: None,
-            country: None,
-            country_code: None,
-            asn: None,
-            incoming_bytes: if is_outgoing { 0 } else { packet_size },
-            outgoing_bytes: if is_outgoing { packet_size } else { 0 },
-            incoming_packets: if is_outgoing { 0 } else { 1 },
-            outgoing_packets: if is_outgoing { 1 } else { 0 },
-            first_seen: now,
-            last_seen: now,
-        }
-    });
 }
 
 async fn update_overall_stats(

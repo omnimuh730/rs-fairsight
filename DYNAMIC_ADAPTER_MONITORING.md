@@ -2,7 +2,7 @@
 
 ## Overview
 
-TinkerTicker now provides comprehensive multi-adapter monitoring with intelligent handling of dynamic network changes, including VPN connections/disconnections, network adapter changes, and complex routing scenarios.
+InnoMonitor now provides comprehensive multi-adapter monitoring with intelligent handling of dynamic network changes, including VPN connections/disconnections, network adapter changes, and complex routing scenarios.
 
 ## Key Features
 
@@ -55,7 +55,7 @@ TinkerTicker now provides comprehensive multi-adapter monitoring with intelligen
 Before VPN: [Internet] ←→ [WiFi] ←→ [Your Computer]
 After VPN:  [Internet] ←→ [VPN Server] ←→ [VPN Adapter] ←→ [Your Computer]
                                              ↑
-                                        (TinkerTicker monitors this)
+                                        (InnoMonitor monitors this)
 
 Result: All traffic appears on VPN adapter, WiFi shows minimal traffic
 ```
@@ -65,7 +65,7 @@ Result: All traffic appears on VPN adapter, WiFi shows minimal traffic
 Work Traffic:    [Work Server] ←→ [VPN Adapter] ←→ [Your Computer]
 Personal Traffic: [Internet] ←→ [WiFi] ←→ [Your Computer]
                                  ↑              ↑
-                          (Both monitored by TinkerTicker)
+                          (Both monitored by InnoMonitor)
 
 Result: Traffic split between VPN adapter and WiFi, both monitored
 ```

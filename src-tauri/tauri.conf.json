@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "TinkerTicker",
+  "productName": "InnoMonitor",
   "version": "1.0.0",
-  "identifier": "com.tinkerticker.app",
+  "identifier": "com.innomonitor.app",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "TinkerTicker",
+        "title": "InnoMonitor",
         "width": 1024,
         "height": 768,
         "minWidth": 1024,

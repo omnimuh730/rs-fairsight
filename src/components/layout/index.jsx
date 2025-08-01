@@ -99,7 +99,7 @@ function ResponsiveDrawer(props) {
             <Menu/>
           </IconButton>
           <Typography variant="h6" noWrap component="div">
-            Time is your ally, TinkerTicker is your guide.
+            Time is your ally, InnoMonitor is your guide.
           </Typography>
         </Toolbar>
       </AppBar>

@@ -6,7 +6,6 @@ use parking_lot::RwLock;
 use crate::persistent_state::get_persistent_state_manager;
 use super::types::{MonitoringConfig, MonitoringStats, TrafficData, NetworkHost, ServiceInfo};
 use super::packet_processing::{create_packet_capture, process_real_packet};
-use super::simulation::simulate_traffic_tick;
 use super::session_manager::{save_periodic_session, save_final_session};
 
 pub struct TrafficMonitor {
@@ -196,8 +195,9 @@ impl TrafficMonitor {
         let mut last_save_outgoing_packets = 0u64;
 
         if let Some(mut capture) = capture_opt {
-            // Real packet capture mode - continuous capture
-            println!("Starting continuous packet capture mode for {}", adapter_name);
+            // Real packet capture mode - prioritized over simulation
+            println!("✅ Real packet capture active for {}", adapter_name);
+            println!("🔍 Monitoring live network traffic with enhanced host analysis");
             
             loop {
                 if !*is_running.read() {
@@ -234,7 +234,7 @@ impl TrafficMonitor {
                                     continue;
                                 }
                                 Err(e) => {
-                                    eprintln!("Packet capture error: {}. Switching to simulation mode.", e);
+                                    eprintln!("Packet capture error: {}. Will attempt to reconnect.", e);
                                     return; // Exit packet capture loop
                                 }
                             }
@@ -247,14 +247,23 @@ impl TrafficMonitor {
             }
         }
 
-        // Fallback to simulation mode if real capture fails or stops
-        println!("Using simulation mode for adapter: {}", adapter_name);
-        let mut interval = tokio::time::interval(Duration::from_secs(1));
+        // Retry mechanism - wait for real packet capture to become available
+        println!("⚠️  Real packet capture unavailable for adapter: {}", adapter_name);
+        println!("🔄 Retrying packet capture every 5 seconds...");
+        println!("💡 To capture real traffic, run with admin privileges or check adapter permissions");
+        let mut retry_interval = tokio::time::interval(Duration::from_secs(5));
         
         while *is_running.read() {
             tokio::select! {
-                _ = interval.tick() => {
-                    simulate_traffic_tick(&hosts, &services, &traffic_history, &stats, start_time).await;
+                _ = retry_interval.tick() => {
+                    println!("🔄 Attempting to reconnect packet capture on {}...", adapter_name);
+                    if let Some(_cap) = create_packet_capture(&adapter_name) {
+                        println!("✅ Packet capture reconnected! Restarting traffic monitoring...");
+                        // Break out of retry loop to restart the main monitoring function
+                        return;
+                    } else {
+                        println!("❌ Still unable to capture packets. Retrying in 5 seconds...");
+                    }
                 }
                 _ = save_interval.tick() => {
                     save_periodic_session(
