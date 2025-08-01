@@ -1,9 +1,13 @@
-# Changelog
+# InnoMonitor Changelog
 
-All notable changes to InnoMonitor will be documented in this file.
+> **📋 Complete version history and release notes for InnoMonitor**
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+[![Version](https://img.shields.io/badge/latest-v1.1.0-blue.svg)](https://github.com/omnimuh730/rs-fairsight/releases)
+[![Semantic Versioning](https://img.shields.io/badge/semver-2.0.0-brightgreen.svg)](https://semver.org/)
+[![Keep a Changelog](https://img.shields.io/badge/changelog-format-orange.svg)](https://keepachangelog.com/)
+
+**Format**: Based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)  
+**Versioning**: Adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [1.1.0] - 2025-08-01 
 
