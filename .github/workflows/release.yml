@@ -3,7 +3,9 @@ name: Publish Tauri App
 on:
   push:
     branches:
-      - release
+      - master
+    tags:
+      - 'v*'
   workflow_dispatch:
 
 jobs:
@@ -39,7 +41,14 @@ jobs:
         if: matrix.platform == 'ubuntu-latest'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libgtk-3-dev webkit2gtk-4.0 libappindicator3-dev librsvg2-dev patchelf
+          sudo apt-get install -y libgtk-3-dev webkit2gtk-4.0 libappindicator3-dev librsvg2-dev patchelf libpcap-dev
+
+      - name: Install Windows dependencies
+        if: matrix.platform == 'windows-latest'
+        run: |
+          # WinPcap/Npcap should be pre-installed on GitHub runners
+          # If not, you can download and install it here
+          echo "Windows pcap support should be available"
 
       - name: Install app dependencies and build frontend
         run: npm install && npm run build
