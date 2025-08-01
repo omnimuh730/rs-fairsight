@@ -175,24 +175,54 @@ impl NetworkStorageManager {
             top_services,
         };
         daily_summary.sessions.push(split_session);
-        daily_summary.total_incoming_bytes += remaining_in_bytes;
-        daily_summary.total_outgoing_bytes += remaining_out_bytes;
-        daily_summary.total_duration += remaining_duration;
-        if daily_summary.sessions.len() > 100 {
-            daily_summary = self.consolidate_sessions(daily_summary)?;
-        }
-        let mut all_hosts = std::collections::HashSet::new();
-        let mut all_services = std::collections::HashSet::new();
-        for sess in &daily_summary.sessions {
-            for host in &sess.top_hosts {
-                all_hosts.insert(&host.ip);
+        if cfg!(target_os = "macos") {
+            // Deduplicate by unique host and service for macOS
+            use std::collections::HashMap;
+            let mut host_map: HashMap<String, u64> = HashMap::new();
+            let mut service_map: HashMap<String, u64> = HashMap::new();
+            let mut total_in_bytes = 0u64;
+            let mut total_out_bytes = 0u64;
+            for sess in &daily_summary.sessions {
+                for host in &sess.top_hosts {
+                    let entry = host_map.entry(host.ip.clone()).or_insert(0);
+                    if *entry == 0 {
+                        total_in_bytes += host.incoming_bytes;
+                        total_out_bytes += host.outgoing_bytes;
+                    }
+                    *entry += 1;
+                }
+                for service in &sess.top_services {
+                    let key = format!("{}:{}", service.protocol, service.port);
+                    let entry = service_map.entry(key).or_insert(0);
+                    if *entry == 0 {
+                        // Only count bytes for unique service
+                        // If you want to sum bytes, you can add service.bytes here
+                    }
+                    *entry += 1;
+                }
             }
-            for service in &sess.top_services {
-                all_services.insert(format!("{}:{}", service.protocol, service.port));
+            daily_summary.total_incoming_bytes = total_in_bytes;
+            daily_summary.total_outgoing_bytes = total_out_bytes;
+            daily_summary.total_duration = daily_summary.sessions.iter().map(|s| s.duration).sum();
+            daily_summary.unique_hosts = host_map.len();
+            daily_summary.unique_services = service_map.len();
+        } else {
+            daily_summary.total_incoming_bytes += remaining_in_bytes;
+            daily_summary.total_outgoing_bytes += remaining_out_bytes;
+            daily_summary.total_duration += remaining_duration;
+            let mut all_hosts = std::collections::HashSet::new();
+            let mut all_services = std::collections::HashSet::new();
+            for sess in &daily_summary.sessions {
+                for host in &sess.top_hosts {
+                    all_hosts.insert(&host.ip);
+                }
+                for service in &sess.top_services {
+                    all_services.insert(format!("{}:{}", service.protocol, service.port));
+                }
             }
+            daily_summary.unique_hosts = all_hosts.len();
+            daily_summary.unique_services = all_services.len();
         }
-        daily_summary.unique_hosts = all_hosts.len();
-        daily_summary.unique_services = all_services.len();
         if let Err(e) = self.save_daily_summary(&date, &daily_summary) {
             result = Err(e);
         }
