@@ -2,6 +2,8 @@ use crate::time_tracker::aggregate_log_results;
 use crate::health_monitor::HEALTH_MONITOR;
 use crate::logger::{get_logs, get_recent_logs, clear_logs, LogEntry};
 use crate::network_monitor::{get_network_adapters, NetworkAdapter};
+// use crate::network_engine::{get_network_engine, start_network_engine, stop_network_engine};
+// use crate::state_manager::{get_state_manager, AdapterMetrics, SystemState};
 use crate::traffic_monitor::{get_or_create_monitor, MonitoringStats};
 use crate::network_storage::{NETWORK_STORAGE, DailyNetworkSummary};
 use crate::persistent_state::{get_persistent_state_manager, AdapterPersistentState};
@@ -80,11 +82,6 @@ pub fn get_network_adapters_command() -> Result<Vec<NetworkAdapter>, String> {
 }
 
 #[tauri::command]
-pub fn get_default_network_adapter() -> Result<String, String> {
-    crate::network_monitor::get_default_network_adapter()
-}
-
-#[tauri::command]
 pub async fn start_network_monitoring(adapter_name: String) -> Result<String, String> {
     let monitor = get_or_create_monitor(&adapter_name);
     match monitor.start_monitoring().await {
@@ -107,7 +104,7 @@ pub fn get_network_stats(adapter_name: String) -> Result<MonitoringStats, String
 }
 
 #[tauri::command]
-pub fn is_network_monitoring(adapter_name: String) -> bool {
+pub async fn is_network_monitoring(adapter_name: String) -> bool {
     let monitor = get_or_create_monitor(&adapter_name);
     monitor.is_monitoring()
 }

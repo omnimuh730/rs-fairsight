@@ -176,17 +176,26 @@ fn main() {
         .on_window_event(|window, event| {
             handle_window_event(window, event);
             
-            // Handle clean shutdown
-            if let tauri::WindowEvent::CloseRequested { .. } = event {
-                println!("🔄 Application closing - marking clean shutdown...");
-                if let Err(e) = get_persistent_state_manager().mark_clean_shutdown() {
-                    eprintln!("⚠️  Failed to mark clean shutdown: {}", e);
+            // Handle clean shutdown on various window events
+            match event {
+                tauri::WindowEvent::CloseRequested { .. } => {
+                    println!("🔄 Application closing - marking clean shutdown...");
+                    if let Err(e) = get_persistent_state_manager().mark_clean_shutdown() {
+                        eprintln!("⚠️  Failed to mark clean shutdown: {}", e);
+                    }
                 }
+                tauri::WindowEvent::Destroyed => {
+                    println!("🔄 Window destroyed - ensuring clean shutdown...");
+                    if let Err(e) = get_persistent_state_manager().mark_clean_shutdown() {
+                        eprintln!("⚠️  Failed to mark clean shutdown on destroy: {}", e);
+                    }
+                }
+                _ => {}
             }
         })
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(
-            tauri::generate_handler![greet, sync_time_data, aggregate_week_activity_logs, get_health_status, get_all_logs, get_recent_logs_limited, clear_all_logs, get_network_adapters_command, get_default_network_adapter, start_network_monitoring, stop_network_monitoring, get_network_stats, is_network_monitoring, get_network_history, get_available_network_dates, cleanup_old_network_data, create_network_backup, restore_network_backup, cleanup_network_backups, get_adapter_persistent_state, get_lifetime_stats, check_unexpected_shutdown, get_current_network_totals]
+            tauri::generate_handler![greet, sync_time_data, aggregate_week_activity_logs, get_health_status, get_all_logs, get_recent_logs_limited, clear_all_logs, get_network_adapters_command, start_network_monitoring, stop_network_monitoring, get_network_stats, is_network_monitoring, get_network_history, get_available_network_dates, cleanup_old_network_data, create_network_backup, restore_network_backup, cleanup_network_backups, get_adapter_persistent_state, get_lifetime_stats, check_unexpected_shutdown, get_current_network_totals]
         )
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

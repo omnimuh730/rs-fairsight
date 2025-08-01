@@ -62,19 +62,24 @@ impl PersistentStateManager {
             return Ok(state);
         }
         
-        // If both fail, create new state
+        // If both fail, create new state with clean shutdown marked
         let current_time = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap_or_default()
             .as_secs();
             
-        Ok(AppPersistentState {
+        let new_state = AppPersistentState {
             adapters: HashMap::new(),
-            last_shutdown_time: None,
+            last_shutdown_time: Some(current_time), // Mark as clean start
             app_version: env!("CARGO_PKG_VERSION").to_string(),
             created_at: current_time,
             updated_at: current_time,
-        })
+        };
+        
+        // Save the new state immediately to establish clean state
+        let _ = self.save_state(&new_state);
+        
+        Ok(new_state)
     }
 
     fn load_from_file(&self, file_path: &PathBuf) -> Result<AppPersistentState, String> {
@@ -92,6 +97,14 @@ impl PersistentStateManager {
     }
 
     pub fn save_state(&self, state: &AppPersistentState) -> Result<(), String> {
+        // Ensure the directory exists
+        if let Some(parent_dir) = self.state_file_path.parent() {
+            if !parent_dir.exists() {
+                fs::create_dir_all(parent_dir)
+                    .map_err(|e| format!("Failed to create state directory: {}", e))?;
+            }
+        }
+
         // Create backup of current state if it exists
         if self.state_file_path.exists() {
             if let Err(e) = fs::copy(&self.state_file_path, &self.backup_file_path) {
@@ -102,21 +115,33 @@ impl PersistentStateManager {
         let content = serde_json::to_string_pretty(state)
             .map_err(|e| format!("Failed to serialize state: {}", e))?;
         
-        // Atomic write using temporary file
-        let temp_path = self.state_file_path.with_extension("tmp");
-        
-        fs::write(&temp_path, &content)
-            .map_err(|e| format!("Failed to write temporary state file: {}", e))?;
-        
-        // Verify the file was written correctly
-        let _ = fs::read_to_string(&temp_path)
-            .map_err(|e| format!("Failed to verify temporary state file: {}", e))?;
-        
-        // Atomically replace the original file
-        fs::rename(&temp_path, &self.state_file_path)
-            .map_err(|e| format!("Failed to finalize state save: {}", e))?;
-        
-        Ok(())
+        // Try direct write first (simpler approach for Windows)
+        match fs::write(&self.state_file_path, &content) {
+            Ok(_) => {
+                // Verify the file was written correctly by reading it back
+                match fs::read_to_string(&self.state_file_path) {
+                    Ok(_) => Ok(()),
+                    Err(e) => Err(format!("Failed to verify written state file: {}", e))
+                }
+            }
+            Err(_) => {
+                // If direct write fails, try atomic write using temporary file
+                let temp_path = self.state_file_path.with_extension("tmp");
+                
+                fs::write(&temp_path, &content)
+                    .map_err(|e| format!("Failed to write temporary state file: {}", e))?;
+                
+                // Verify the temporary file was written correctly
+                let _ = fs::read_to_string(&temp_path)
+                    .map_err(|e| format!("Failed to verify temporary state file: {}", e))?;
+                
+                // Atomically replace the original file
+                fs::rename(&temp_path, &self.state_file_path)
+                    .map_err(|e| format!("Failed to finalize state save: {}", e))?;
+                
+                Ok(())
+            }
+        }
     }
 
     pub fn update_adapter_state(&self, adapter_name: &str, updater: impl FnOnce(&mut AdapterPersistentState)) -> Result<(), String> {
@@ -183,11 +208,29 @@ impl PersistentStateManager {
     pub fn was_unexpected_shutdown(&self) -> Result<bool, String> {
         let state = self.load_state()?;
         
+        // If this is a fresh install (no adapters recorded), it's not unexpected
+        if state.adapters.is_empty() {
+            return Ok(false);
+        }
+        
+        // If we have a recent clean shutdown timestamp (within last 5 minutes), it's not unexpected
+        if let Some(last_shutdown) = state.last_shutdown_time {
+            let current_time = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_secs();
+            
+            // If shutdown was recent (within 5 minutes), consider it clean
+            if current_time - last_shutdown < 300 {
+                return Ok(false);
+            }
+        }
+        
         // If any adapter was marked as monitoring on exit, it was unexpected
         let was_monitoring = state.adapters.values()
             .any(|adapter| adapter.was_monitoring_on_exit);
         
-        Ok(was_monitoring || state.last_shutdown_time.is_none())
+        Ok(was_monitoring)
     }
 
     pub fn get_all_adapter_states(&self) -> Result<HashMap<String, AdapterPersistentState>, String> {

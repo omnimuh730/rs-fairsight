@@ -10,11 +10,10 @@ use pcap::{Capture, Device};
 use etherparse::LaxPacketHeaders;
 use dns_lookup::lookup_addr;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
-use std::collections::HashMap;
 
 // Global packet deduplication store to prevent counting same packets across adapters
 lazy_static::lazy_static! {
-    static ref PACKET_DEDUP: Arc<DashMap<String, u64>> = Arc::new(DashMap::new());
+    static ref PACKET_DEDUP: Arc<DashMap<String, (u64, String)>> = Arc::new(DashMap::new());
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -85,9 +84,13 @@ pub struct TrafficMonitor {
 impl TrafficMonitor {
     pub fn new(adapter_name: String) -> Self {
         // Load persistent state for this adapter
-        let persistent_state = get_persistent_state_manager()
-            .get_adapter_state(&adapter_name)
-            .unwrap_or(None);
+        let persistent_state = match get_persistent_state_manager().get_adapter_state(&adapter_name) {
+            Ok(state) => state,
+            Err(e) => {
+                eprintln!("⚠️  Failed to load persistent state for '{}': {}. Starting fresh.", adapter_name, e);
+                None
+            }
+        };
 
         let (total_incoming, total_outgoing, total_in_packets, total_out_packets) = 
             if let Some(ref state) = persistent_state {
@@ -280,7 +283,7 @@ impl TrafficMonitor {
         is_running: Arc<RwLock<bool>>,
         stats: Arc<RwLock<MonitoringStats>>,
     ) {
-        println!("Starting real traffic monitoring for adapter: {}", adapter_name);
+        println!("🚀 Starting comprehensive traffic monitoring for adapter: {} (with packet deduplication)", adapter_name);
 
         // Try to create real packet capture
         let mut capture_opt = None;
@@ -352,7 +355,7 @@ impl TrafficMonitor {
                                 Ok(packet) => {
                                     Self::process_real_packet(
                                         packet, &hosts, &services, &traffic_history, 
-                                        &stats, start_time
+                                        &stats, start_time, &adapter_name
                                     ).await;
                                     // Continue immediately to next packet without delay
                                 }
@@ -405,6 +408,7 @@ impl TrafficMonitor {
         traffic_history: &Arc<Mutex<Vec<TrafficData>>>,
         stats: &Arc<RwLock<MonitoringStats>>,
         start_time: u64,
+        adapter_name: &str,
     ) {
         // Use the original packet length from header, not the captured data length
         let packet_size = packet.header.len as u64;  // This is the actual packet size
@@ -426,18 +430,21 @@ impl TrafficMonitor {
                     packet.header.ts.tv_usec  // Include microsecond timestamp for uniqueness
                 );
 
-                // Check if we've already processed this packet (deduplication)
-                if PACKET_DEDUP.contains_key(&packet_signature) {
+                // Enhanced deduplication: Check if we've already processed this packet
+                if let Some(entry) = PACKET_DEDUP.get(&packet_signature) {
+                    let (_, _first_adapter) = entry.value();
                     // Skip this packet - it's a duplicate from another adapter
+                    // Optional: Log which adapters are seeing duplicates for debugging
+                    // println!("🔄 Skipping duplicate packet from {} (first seen on: {})", adapter_name, first_adapter);
                     return;
                 }
 
-                // Mark this packet as processed (expires after 5 seconds)
-                PACKET_DEDUP.insert(packet_signature.clone(), now + 5);
+                // Mark this packet as processed with adapter info (expires after 5 seconds)
+                PACKET_DEDUP.insert(packet_signature.clone(), (now + 5, adapter_name.to_string()));
 
-                // Clean up old entries periodically (every 100 packets)
+                // Clean up old entries periodically (every 100 packets) 
                 if packet.header.ts.tv_usec % 100 == 0 {
-                    PACKET_DEDUP.retain(|_, &mut expiry_time| expiry_time > now);
+                    PACKET_DEDUP.retain(|_, (expiry_time, _)| *expiry_time > now);
                 }
 
                 // Update stats
@@ -856,7 +863,10 @@ impl TrafficMonitor {
             state.lifetime_incoming_bytes = current_stats.total_incoming_bytes;
             state.lifetime_outgoing_bytes = current_stats.total_outgoing_bytes;
         }) {
-            eprintln!("⚠️  Failed to update persistent state during periodic save: {}", e);
+            // Only log persistent state errors occasionally to avoid spam
+            if now % 30 == 0 {  // Log error every 30 seconds max
+                eprintln!("⚠️  Persistent state update failed (will retry): {}", e);
+            }
         }
         
         // Only save session if there's actual incremental traffic data
