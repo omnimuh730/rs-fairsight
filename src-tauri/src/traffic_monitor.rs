@@ -10,6 +10,12 @@ use pcap::{Capture, Device};
 use etherparse::LaxPacketHeaders;
 use dns_lookup::lookup_addr;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
+use std::collections::HashMap;
+
+// Global packet deduplication store to prevent counting same packets across adapters
+lazy_static::lazy_static! {
+    static ref PACKET_DEDUP: Arc<DashMap<String, u64>> = Arc::new(DashMap::new());
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TrafficData {
@@ -410,6 +416,30 @@ impl TrafficMonitor {
                 Self::extract_packet_info(&headers);
 
             if let (Some(src_ip), Some(dst_ip)) = (source_ip, dest_ip) {
+                // Create a unique packet signature for deduplication
+                let packet_signature = format!(
+                    "{}->{}:{}:{}:{}", 
+                    src_ip, 
+                    dst_ip, 
+                    source_port.unwrap_or(0), 
+                    dest_port.unwrap_or(0),
+                    packet.header.ts.tv_usec  // Include microsecond timestamp for uniqueness
+                );
+
+                // Check if we've already processed this packet (deduplication)
+                if PACKET_DEDUP.contains_key(&packet_signature) {
+                    // Skip this packet - it's a duplicate from another adapter
+                    return;
+                }
+
+                // Mark this packet as processed (expires after 5 seconds)
+                PACKET_DEDUP.insert(packet_signature.clone(), now + 5);
+
+                // Clean up old entries periodically (every 100 packets)
+                if packet.header.ts.tv_usec % 100 == 0 {
+                    PACKET_DEDUP.retain(|_, &mut expiry_time| expiry_time > now);
+                }
+
                 // Update stats
                 {
                     let mut stats_guard = stats.write();
@@ -491,16 +521,23 @@ impl TrafficMonitor {
     }
 
     fn is_outgoing_traffic(ip: &IpAddr) -> bool {
-        // Simple heuristic: local/private IPs are usually sources of outgoing traffic
+        // Enhanced logic to determine traffic direction like SniffNet
         match ip {
             IpAddr::V4(ipv4) => {
-                ipv4.is_private() || ipv4.is_loopback()
+                // Outgoing traffic typically has local source IPs
+                ipv4.is_private() || ipv4.is_loopback() || 
+                // Common local network ranges
+                ipv4.octets()[0] == 192 && ipv4.octets()[1] == 168 ||
+                ipv4.octets()[0] == 10 ||
+                (ipv4.octets()[0] == 172 && ipv4.octets()[1] >= 16 && ipv4.octets()[1] <= 31)
             }
             IpAddr::V6(ipv6) => {
                 ipv6.is_loopback() || 
-                // Check for private IPv6 ranges (simplified)
-                ipv6.segments()[0] == 0xfe80 || // Link-local
-                ipv6.segments()[0] == 0xfc00 || // Unique local
+                // Link-local addresses are typically local
+                (ipv6.segments()[0] & 0xffc0) == 0xfe80 ||
+                // Unique local addresses
+                (ipv6.segments()[0] & 0xfe00) == 0xfc00 ||
+                // Additional private IPv6 ranges
                 ipv6.segments()[0] == 0xfd00    // Unique local
             }
         }

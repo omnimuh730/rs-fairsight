@@ -73,7 +73,7 @@ export const useNetworkMonitoring = (adapters) => {
 		loadLifetimeStats();
 	}, []);
 
-	// Initialize monitoring states and auto-start monitoring for all adapters
+	// Initialize monitoring states and auto-start monitoring for ALL adapters with duplicate prevention
 	useEffect(() => {
 		const initializeAndStartMonitoring = async () => {
 			const states = {};

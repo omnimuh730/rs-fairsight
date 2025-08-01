@@ -96,8 +96,7 @@ const AdapterInfo = ({ adapter }) => {
 
 			<Grid item xs={12}>
 				<Alert severity="info">
-					Click "Start Monitoring" to begin capturing network traffic for this adapter.
-					You'll see real-time statistics, network hosts, and service information.
+					This adapter is automatically monitored when active. Network traffic is captured from all active adapters with duplicate packet detection to ensure accurate traffic counts across multiple interfaces.
 				</Alert>
 			</Grid>
 		</Grid>

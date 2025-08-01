@@ -53,29 +53,104 @@ pub fn get_network_adapters() -> Result<Vec<NetworkAdapter>, String> {
 }
 
 /// Get the best available network adapter for monitoring (non-loopback, up, with addresses)
+/// This follows SniffNet's device selection logic to avoid monitoring multiple overlapping interfaces
 pub fn get_default_network_adapter() -> Result<String, String> {
     let adapters = get_network_adapters()?;
     
-    // First, try to find a non-loopback adapter that's up and has addresses
+    println!("🔍 Finding best network adapter from {} available adapters", adapters.len());
+    
+    // Filter and rank adapters by preference (like SniffNet)
+    let mut suitable_adapters = Vec::new();
+    
     for adapter in &adapters {
-        if !adapter.is_loopback && adapter.is_up && !adapter.addresses.is_empty() {
-            return Ok(adapter.name.clone());
+        // Skip loopback adapters entirely
+        if adapter.is_loopback {
+            println!("⏭️  Skipping loopback adapter: {}", adapter.name);
+            continue;
         }
+        
+        // Skip inactive adapters
+        if !adapter.is_up {
+            println!("⏭️  Skipping inactive adapter: {}", adapter.name);
+            continue;
+        }
+        
+        // Calculate preference score
+        let mut score = 0i32;
+        
+        // Prefer adapters with IP addresses
+        if !adapter.addresses.is_empty() {
+            score += 100;
+            println!("✅ Adapter {} has {} addresses (+100 points)", adapter.name, adapter.addresses.len());
+        }
+        
+        // Prefer physical network adapters over virtual ones
+        if let Some(ref desc) = adapter.description {
+            let desc_lower = desc.to_lowercase();
+            
+            // Prefer Ethernet and WiFi adapters
+            if desc_lower.contains("ethernet") || desc_lower.contains("wifi") || desc_lower.contains("wireless") {
+                score += 50;
+                println!("✅ Adapter {} is physical network interface (+50 points)", adapter.name);
+            }
+            
+            // Deprioritize virtual adapters commonly found on macOS that cause duplication
+            if desc_lower.contains("vmware") || desc_lower.contains("virtualbox") || 
+               desc_lower.contains("parallels") || desc_lower.contains("docker") ||
+               desc_lower.contains("bridge") || desc_lower.contains("tap") ||
+               desc_lower.contains("tun") || desc_lower.contains("vpn") {
+                score -= 30;
+                println!("⚠️  Adapter {} is virtual/bridge interface (-30 points)", adapter.name);
+            }
+            
+            // Special handling for macOS adapters that might cause duplication
+            if desc_lower.contains("en0") || desc_lower.contains("wi-fi") {
+                score += 20;  // These are usually the main interfaces on macOS
+                println!("✅ Adapter {} appears to be main macOS interface (+20 points)", adapter.name);
+            }
+        }
+        
+        // Check for external interfaces (non-private IPs get higher score)
+        for addr_str in &adapter.addresses {
+            if let Ok(ip) = addr_str.parse::<std::net::IpAddr>() {
+                match ip {
+                    std::net::IpAddr::V4(ipv4) => {
+                        if !ipv4.is_private() && !ipv4.is_loopback() {
+                            score += 25;
+                            println!("✅ Adapter {} has public IPv4 address (+25 points)", adapter.name);
+                            break;
+                        }
+                    }
+                    std::net::IpAddr::V6(_) => {
+                        // IPv6 addresses (but not link-local) get moderate preference
+                        if !addr_str.starts_with("fe80") {
+                            score += 10;
+                            println!("✅ Adapter {} has IPv6 address (+10 points)", adapter.name);
+                        }
+                    }
+                }
+            }
+        }
+        
+        suitable_adapters.push((adapter, score));
+        println!("📊 Adapter {} total score: {}", adapter.name, score);
     }
     
-    // If no ideal adapter found, try any non-loopback adapter that's up
-    for adapter in &adapters {
-        if !adapter.is_loopback && adapter.is_up {
-            return Ok(adapter.name.clone());
-        }
+    if suitable_adapters.is_empty() {
+        return Err("No suitable network adapters found for monitoring. All adapters are either loopback or inactive.".to_string());
     }
     
-    // If still no adapter found, try any non-loopback adapter
-    for adapter in &adapters {
-        if !adapter.is_loopback {
-            return Ok(adapter.name.clone());
-        }
-    }
+    // Sort by score (highest first)
+    suitable_adapters.sort_by(|a, b| b.1.cmp(&a.1));
     
-    Err("No suitable network adapter found for monitoring".to_string())
+    let best_adapter = &suitable_adapters[0].0;
+    let best_score = suitable_adapters[0].1;
+    
+    println!("🎯 Selected best adapter: '{}' (score: {}) - {}", 
+        best_adapter.name, 
+        best_score,
+        best_adapter.description.as_deref().unwrap_or("No description")
+    );
+    
+    Ok(best_adapter.name.clone())
 }

@@ -31,8 +31,6 @@ const NetworkMonitorPage = () => {
 		networkStats, 
 		lifetimeStats,
 		unexpectedShutdown,
-		startMonitoring,
-		stopMonitoring,
 		refreshLifetimeStats,
 	} = useNetworkMonitoring(adapters);
 
@@ -43,14 +41,6 @@ const NetworkMonitorPage = () => {
 
 	const handleTabChange = (event, newValue) => {
 		setSelectedTab(newValue);
-	};
-
-	const handleStartMonitoring = async (adapterName) => {
-		try {
-			await startMonitoring(adapterName);
-		} catch (err) {
-			console.error('Failed to start monitoring:', err);
-		}
 	};
 
 	if (loading) {
@@ -75,7 +65,7 @@ const NetworkMonitorPage = () => {
 				</Typography>
 				
 				<Typography variant="body1" color="text.secondary" paragraph>
-					Monitor network traffic across your network adapters. Use the tabs below to view overall statistics or details for individual adapters.
+					Monitor network traffic across your network adapters. All active adapters are automatically monitored with intelligent packet deduplication to prevent duplicate traffic counting from overlapping interfaces.
 				</Typography>
 
 				{unexpectedShutdown && (
@@ -146,8 +136,6 @@ const NetworkMonitorPage = () => {
 								<AdapterDetails 
 									adapter={adapters[selectedTab - 1]} 
 									isMonitoring={monitoringStates[adapters[selectedTab - 1]?.name] || false}
-									onStartMonitoring={handleStartMonitoring}
-									onStopMonitoring={stopMonitoring}
 									stats={networkStats[adapters[selectedTab - 1]?.name]}
 									lifetimeState={lifetimeStats[adapters[selectedTab - 1]?.name]}
 								/>

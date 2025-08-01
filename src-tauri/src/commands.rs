@@ -80,6 +80,11 @@ pub fn get_network_adapters_command() -> Result<Vec<NetworkAdapter>, String> {
 }
 
 #[tauri::command]
+pub fn get_default_network_adapter() -> Result<String, String> {
+    crate::network_monitor::get_default_network_adapter()
+}
+
+#[tauri::command]
 pub async fn start_network_monitoring(adapter_name: String) -> Result<String, String> {
     let monitor = get_or_create_monitor(&adapter_name);
     match monitor.start_monitoring().await {
