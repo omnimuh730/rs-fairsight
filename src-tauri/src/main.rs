@@ -21,6 +21,7 @@ mod persistent_state;
 mod macos_utils;
 
 use chrono::Local;
+#[cfg(target_os = "windows")]
 use std::path::Path;
 use tauri::Manager;
 use tauri_plugin_autostart::MacosLauncher;
