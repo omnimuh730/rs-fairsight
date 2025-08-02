@@ -1,6 +1,7 @@
 use chrono::{DateTime, Local, NaiveDate, TimeZone};
 use std::collections::HashMap;
 use std::fs;
+#[cfg(target_os = "windows")]
 use std::path::Path;
 
 #[cfg(target_os = "macos")]
