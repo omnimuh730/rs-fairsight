@@ -1,12 +1,14 @@
 use chrono::{DateTime, Local, NaiveDate, TimeZone};
 use std::collections::HashMap;
 use std::fs;
-use std::io;
+
 #[cfg(target_os = "windows")]
 use std::path::Path;
 
 #[cfg(target_os = "macos")]
 use dirs;
+#[cfg(target_os = "macos")]
+use std::io;
 
 use crate::encryption::{decrypt_string, KEY};
 

@@ -3,6 +3,9 @@ use std::fs;
 use std::path::PathBuf;
 use std::collections::HashMap;
 
+#[cfg(target_os = "macos")]
+use dirs;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AdapterPersistentState {
     pub adapter_name: String,
@@ -35,7 +38,19 @@ pub struct PersistentStateManager {
 
 impl PersistentStateManager {
     pub fn new() -> Result<Self, String> {
-        let state_dir = std::path::Path::new("C:\\fairsight-network-log");
+        let state_dir;
+        
+        #[cfg(target_os = "macos")]
+        {
+            let home_dir = dirs::home_dir()
+                .ok_or_else(|| "Could not find home directory".to_string())?;
+            state_dir = home_dir.join("Documents").join("fairsight-network-log");
+        }
+        #[cfg(target_os = "windows")]
+        {
+            state_dir = std::path::Path::new("C:\\fairsight-network-log").to_path_buf();
+        }
+        
         if !state_dir.exists() {
             fs::create_dir_all(&state_dir)
                 .map_err(|e| format!("Failed to create state directory: {}", e))?;
