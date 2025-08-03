@@ -209,6 +209,18 @@ pub fn get_monitoring_adapters() -> Result<Vec<String>, String> {
             continue;
         }
         
+        // Skip known problematic adapters on macOS
+        #[cfg(target_os = "macos")]
+        {
+            if is_unsupported_macos_adapter(&adapter.name) {
+                let skip_reason = "unsupported macOS virtual interface".to_string();
+                crate::log_info!("adapter_selection", "⏭️  Skipping '{}': {}", adapter.name, skip_reason);
+                println!("⏭️  Skipping unsupported macOS adapter: {} (known BIOCPROMISC issues)", adapter.name);
+                skipped_adapters.push((adapter.name.clone(), skip_reason));
+                continue;
+            }
+        }
+        
         // Include ALL active, non-loopback adapters regardless of type
         // This ensures we capture:
         // - Direct ethernet/wifi connections (non-VPN traffic)
@@ -285,4 +297,34 @@ pub fn get_monitoring_adapters() -> Result<Vec<String>, String> {
     println!("🔄 Packet deduplication will prevent double-counting across adapters");
     
     Ok(suitable_adapters)
+}
+
+#[cfg(target_os = "macos")]
+fn is_unsupported_macos_adapter(adapter_name: &str) -> bool {
+    // List of known problematic adapter prefixes on macOS
+    let unsupported_prefixes = [
+        "anpi",      // Apple Network Processing Interface (BIOCPROMISC issues)
+        "ipsec",     // IPSec virtual interfaces
+        "utun",      // User tunnel interfaces
+        "feth",      // Fake ethernet interfaces (used by containers)
+        "gif",       // Generic tunnel interfaces
+        "stf",       // 6to4 tunnel interfaces
+        "XHC",       // USB interfaces that don't support capture
+    ];
+    
+    for prefix in &unsupported_prefixes {
+        if adapter_name.starts_with(prefix) {
+            return true;
+        }
+    }
+    
+    // Also check for specific problematic patterns
+    if adapter_name.starts_with("anpi") || 
+       adapter_name.starts_with("ipsec") ||
+       adapter_name.starts_with("utun") ||
+       adapter_name.starts_with("feth") {
+        return true;
+    }
+    
+    false
 }

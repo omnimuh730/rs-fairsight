@@ -185,6 +185,68 @@ pub fn stop_comprehensive_monitoring() -> Result<String, String> {
 }
 
 #[tauri::command]
+pub async fn refresh_and_restart_monitoring() -> Result<String, String> {
+    #[cfg(target_os = "macos")]
+    {
+        // Check if we have network access permissions on macOS
+        if let Err(permission_error) = check_network_permissions().await {
+            return Err(format!("Network permissions required: {}", permission_error));
+        }
+    }
+    
+    println!("🔄 Refreshing network adapters and restarting monitoring...");
+    
+    // Stop current monitoring
+    let _ = stop_comprehensive_monitoring();
+    
+    // Wait a moment for cleanup
+    tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
+    
+    // Get fresh adapter list (this will filter out problematic adapters)
+    let fresh_adapters = get_monitoring_adapters()?;
+    
+    if fresh_adapters.is_empty() {
+        return Err("No suitable adapters found after refresh".to_string());
+    }
+    
+    println!("🆕 Found {} suitable adapters after refresh: {:?}", fresh_adapters.len(), fresh_adapters);
+    
+    // Start monitoring on fresh adapters
+    let mut started_adapters = Vec::new();
+    let mut failed_adapters = Vec::new();
+    
+    for adapter_name in fresh_adapters {
+        let monitor = get_or_create_monitor(&adapter_name);
+        match monitor.start_monitoring().await {
+            Ok(_) => {
+                started_adapters.push(adapter_name);
+            }
+            Err(e) => {
+                // Skip adapters that fail to start (likely unsupported)
+                println!("⏭️  Skipping problematic adapter {}: {}", adapter_name, e);
+                failed_adapters.push(format!("{}: {}", adapter_name, e));
+            }
+        }
+    }
+    
+    if started_adapters.is_empty() {
+        Err(format!("Failed to start monitoring on any adapters after refresh: {:?}", failed_adapters))
+    } else {
+        let result = format!(
+            "🔄 Refreshed and restarted monitoring on {} adapters: {:?}{}. Problematic adapters filtered out automatically.",
+            started_adapters.len(),
+            started_adapters,
+            if !failed_adapters.is_empty() {
+                format!(" (Skipped problematic: {})", failed_adapters.len())
+            } else {
+                String::new()
+            }
+        );
+        Ok(result)
+    }
+}
+
+#[tauri::command]
 pub fn get_network_stats(adapter_name: String) -> Result<MonitoringStats, String> {
     let monitor = get_or_create_monitor(&adapter_name);
     Ok(monitor.get_stats())

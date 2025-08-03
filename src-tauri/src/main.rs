@@ -33,7 +33,7 @@ use crate::time_tracker::initialize_time_tracking;
 use crate::network_monitor::{get_default_network_adapter, get_monitoring_adapters};
 use crate::traffic_monitor::get_or_create_monitor;
 use crate::web_server::start_web_server;
-use crate::commands::{greet, sync_time_data, aggregate_week_activity_logs, get_health_status, get_comprehensive_health_status, get_all_logs, get_recent_logs_limited, clear_all_logs, get_network_adapters_command, get_monitoring_adapters_command, start_network_monitoring, start_comprehensive_monitoring, stop_network_monitoring, stop_comprehensive_monitoring, get_network_stats, get_comprehensive_network_stats, is_network_monitoring, is_comprehensive_monitoring_active, get_network_history, get_available_network_dates, cleanup_old_network_data, create_network_backup, restore_network_backup, cleanup_network_backups, get_adapter_persistent_state, get_lifetime_stats, check_unexpected_shutdown, get_current_network_totals, request_network_permissions, check_network_permissions_status};
+use crate::commands::{greet, sync_time_data, aggregate_week_activity_logs, get_health_status, get_comprehensive_health_status, get_all_logs, get_recent_logs_limited, clear_all_logs, get_network_adapters_command, get_monitoring_adapters_command, start_network_monitoring, start_comprehensive_monitoring, stop_network_monitoring, stop_comprehensive_monitoring, refresh_and_restart_monitoring, get_network_stats, get_comprehensive_network_stats, is_network_monitoring, is_comprehensive_monitoring_active, get_network_history, get_available_network_dates, cleanup_old_network_data, create_network_backup, restore_network_backup, cleanup_network_backups, get_adapter_persistent_state, get_lifetime_stats, check_unexpected_shutdown, get_current_network_totals, request_network_permissions, check_network_permissions_status};
 use crate::ui_setup::{setup_tray_and_window_events, handle_window_event};
 use crate::health_monitor::initialize_health_monitoring;
 use crate::persistent_state::get_persistent_state_manager;
@@ -154,15 +154,44 @@ fn main() {
                 }
             }
             
-            match get_default_network_adapter() {
-                Ok(adapter_name) => {
-                    let monitor = get_or_create_monitor(&adapter_name);
-                    match monitor.start_monitoring().await {
-                        Ok(_) => println!("🚀 Auto-started network monitoring on adapter: {}", adapter_name),
-                        Err(e) => eprintln!("❌ Failed to auto-start network monitoring: {}", e),
+            // Start comprehensive monitoring with automatic problematic adapter filtering
+            match get_monitoring_adapters() {
+                Ok(adapters) => {
+                    if adapters.is_empty() {
+                        println!("⚠️  No suitable adapters found for monitoring");
+                        return;
+                    }
+                    
+                    println!("🚀 Auto-starting comprehensive monitoring on {} filtered adapters", adapters.len());
+                    
+                    let mut started_adapters = Vec::new();
+                    let mut failed_adapters = Vec::new();
+                    
+                    for adapter_name in adapters {
+                        let monitor = get_or_create_monitor(&adapter_name);
+                        match monitor.start_monitoring().await {
+                            Ok(_) => {
+                                started_adapters.push(adapter_name);
+                            }
+                            Err(e) => {
+                                // Skip problematic adapters silently during auto-start
+                                failed_adapters.push(format!("{}:{}", adapter_name, e));
+                            }
+                        }
+                    }
+                    
+                    if !started_adapters.is_empty() {
+                        println!("✅ Auto-started monitoring on {} adapters: {:?}", started_adapters.len(), started_adapters);
+                        if !failed_adapters.is_empty() {
+                            println!("⏭️  Skipped {} problematic adapters during auto-start", failed_adapters.len());
+                        }
+                    } else {
+                        println!("❌ Failed to start monitoring on any adapters during auto-start");
                     }
                 }
-                Err(e) => eprintln!("⚠️  No suitable network adapter found for auto-start: {}", e),
+                Err(e) => {
+                    println!("⚠️  Failed to get monitoring adapters for auto-start: {}", e);
+                }
             }
         });
     });
@@ -339,7 +368,7 @@ fn main() {
         })
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(
-            tauri::generate_handler![greet, sync_time_data, aggregate_week_activity_logs, get_health_status, get_comprehensive_health_status, get_all_logs, get_recent_logs_limited, clear_all_logs, get_network_adapters_command, get_monitoring_adapters_command, start_network_monitoring, start_comprehensive_monitoring, stop_network_monitoring, stop_comprehensive_monitoring, get_network_stats, get_comprehensive_network_stats, is_network_monitoring, is_comprehensive_monitoring_active, get_network_history, get_available_network_dates, cleanup_old_network_data, create_network_backup, restore_network_backup, cleanup_network_backups, get_adapter_persistent_state, get_lifetime_stats, check_unexpected_shutdown, get_current_network_totals, request_network_permissions, check_network_permissions_status]
+            tauri::generate_handler![greet, sync_time_data, aggregate_week_activity_logs, get_health_status, get_comprehensive_health_status, get_all_logs, get_recent_logs_limited, clear_all_logs, get_network_adapters_command, get_monitoring_adapters_command, start_network_monitoring, start_comprehensive_monitoring, stop_network_monitoring, stop_comprehensive_monitoring, refresh_and_restart_monitoring, get_network_stats, get_comprehensive_network_stats, is_network_monitoring, is_comprehensive_monitoring_active, get_network_history, get_available_network_dates, cleanup_old_network_data, create_network_backup, restore_network_backup, cleanup_network_backups, get_adapter_persistent_state, get_lifetime_stats, check_unexpected_shutdown, get_current_network_totals, request_network_permissions, check_network_permissions_status]
         )
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

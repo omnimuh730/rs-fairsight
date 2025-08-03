@@ -14,6 +14,16 @@ use super::host_analysis::process_host_from_packet;
 pub fn create_packet_capture(adapter_name: &str) -> Option<Capture<pcap::Active>> {
     crate::log_info!("packet_capture", "Attempting to create packet capture for adapter: '{}'", adapter_name);
     
+    // Check if this is a known problematic adapter type on macOS
+    #[cfg(target_os = "macos")]
+    {
+        if is_unsupported_macos_adapter(adapter_name) {
+            crate::log_warning!("packet_capture", "Skipping unsupported macOS adapter: '{}' (known to not support packet capture)", adapter_name);
+            println!("⏭️  Skipping unsupported adapter: {} (virtual/system interface)", adapter_name);
+            return None;
+        }
+    }
+    
     if let Ok(devices) = Device::list() {
         crate::log_info!("packet_capture", "Successfully listed {} devices for capture setup", devices.len());
         
@@ -24,43 +34,20 @@ pub fn create_packet_capture(adapter_name: &str) -> Option<Capture<pcap::Active>
                 Ok(inactive) => {
                     crate::log_info!("packet_capture", "Created inactive capture for '{}', configuring settings...", adapter_name);
                     
-                    match inactive
-                        .promisc(true)
-                        .buffer_size(8_000_000)  // Increase to 8MB buffer for better capture
-                        .snaplen(200)            // Limit packet slice but count full packet size
-                        .immediate_mode(true)    // Parse packets ASAP
-                        .timeout(100)            // Shorter timeout for more responsive capture
-                        .open() {
-                        Ok(cap) => {
-                            // crate::log_info!("packet_capture", "✅ Successfully opened packet capture on '{}'", adapter_name);
-                            println!("Successfully opened packet capture on {}", adapter_name);
-                            return Some(cap);
-                        }
-                        Err(e) => {
-
-                            let error_msg = format!("{}", e);
+                    // Try with promiscuous mode first
+                    match try_open_capture_with_promisc(inactive, adapter_name, true) {
+                        Some(capture) => return Some(capture),
+                        None => {
+                            // If promiscuous mode fails, try without it
+                            crate::log_info!("packet_capture", "Promiscuous mode failed for '{}', trying without promiscuous mode...", adapter_name);
                             
-                            // Handle macOS-specific BPF permission errors
-                            #[cfg(target_os = "macos")]
-                            {
-                                if error_msg.contains("Permission denied") || error_msg.contains("cannot open BPF device") {
-                                    eprintln!("❌ macOS BPF Permission Error on {}: {}", adapter_name, e);
-                                    eprintln!("💡 To capture real traffic, run with admin privileges or check adapter permissions");
-                                    eprintln!("   Solutions:");
-                                    eprintln!("   1. Grant Developer Tools permission in System Preferences → Security & Privacy → Privacy");
-                                    eprintln!("   2. Run with sudo: sudo ./InnoMonitor");
-                                    eprintln!("   3. Fix BPF permissions: sudo chmod +r /dev/bpf*");
-                                    
-                                    // Log specific macOS guidance
-                                    println!("🔄 Retrying packet capture every 5 seconds...");
-                                } else {
-                                    eprintln!("Failed to open capture on {}: {}. Will retry later.", adapter_name, e);
+                            // Recreate the inactive capture (since the previous one was consumed)
+                            if let Ok(devices) = Device::list() {
+                                if let Some(device) = devices.into_iter().find(|d| d.name == adapter_name) {
+                                    if let Ok(inactive) = Capture::from_device(device) {
+                                        return try_open_capture_with_promisc(inactive, adapter_name, false);
+                                    }
                                 }
-                            }
-                            
-                            #[cfg(not(target_os = "macos"))]
-                            {
-                                eprintln!("Failed to open capture on {}: {}. Will retry later.", adapter_name, e);
                             }
                         }
                     }
@@ -81,6 +68,95 @@ pub fn create_packet_capture(adapter_name: &str) -> Option<Capture<pcap::Active>
     
     crate::log_warning!("packet_capture", "Packet capture creation failed for '{}' - returning None", adapter_name);
     None
+}
+
+fn try_open_capture_with_promisc(inactive: pcap::Capture<pcap::Inactive>, adapter_name: &str, use_promisc: bool) -> Option<Capture<pcap::Active>> {
+    let mut capture_builder = inactive
+        .buffer_size(8_000_000)  // Increase to 8MB buffer for better capture
+        .snaplen(200)            // Limit packet slice but count full packet size
+        .immediate_mode(true)    // Parse packets ASAP
+        .timeout(100);           // Shorter timeout for more responsive capture
+    
+    if use_promisc {
+        capture_builder = capture_builder.promisc(true);
+    }
+    
+    match capture_builder.open() {
+        Ok(cap) => {
+            let mode_str = if use_promisc { "promiscuous" } else { "non-promiscuous" };
+            println!("✅ Successfully opened packet capture on {} ({})", adapter_name, mode_str);
+            crate::log_info!("packet_capture", "✅ Successfully opened packet capture on '{}' ({})", adapter_name, mode_str);
+            Some(cap)
+        }
+        Err(e) => {
+            let error_msg = format!("{}", e);
+            
+            // Handle macOS-specific errors
+            #[cfg(target_os = "macos")]
+            {
+                if error_msg.contains("BIOCPROMISC") || error_msg.contains("Operation not supported") {
+                    if use_promisc {
+                        crate::log_warning!("packet_capture", "BIOCPROMISC not supported on '{}', will retry without promiscuous mode", adapter_name);
+                        println!("⚠️  Promiscuous mode not supported on {}, retrying without...", adapter_name);
+                        return None; // Signal to retry without promiscuous mode
+                    } else {
+                        crate::log_error!("packet_capture", "❌ Adapter '{}' does not support packet capture even without promiscuous mode", adapter_name);
+                        println!("❌ Adapter {} does not support packet capture", adapter_name);
+                        return None;
+                    }
+                } else if error_msg.contains("Permission denied") || error_msg.contains("cannot open BPF device") {
+                    eprintln!("❌ macOS BPF Permission Error on {}: {}", adapter_name, e);
+                    eprintln!("💡 To capture real traffic, run with admin privileges or check adapter permissions");
+                    eprintln!("   Solutions:");
+                    eprintln!("   1. Grant Developer Tools permission in System Preferences → Security & Privacy → Privacy");
+                    eprintln!("   2. Run with sudo: sudo ./InnoMonitor");
+                    eprintln!("   3. Fix BPF permissions: sudo chmod +r /dev/bpf*");
+                    
+                    println!("🔄 Retrying packet capture every 5 seconds...");
+                } else {
+                    eprintln!("Failed to open capture on {}: {}. Will retry later.", adapter_name, e);
+                }
+            }
+            
+            #[cfg(not(target_os = "macos"))]
+            {
+                eprintln!("Failed to open capture on {}: {}. Will retry later.", adapter_name, e);
+            }
+            
+            None
+        }
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn is_unsupported_macos_adapter(adapter_name: &str) -> bool {
+    // List of known problematic adapter prefixes on macOS
+    let unsupported_prefixes = [
+        "anpi",      // Apple Network Processing Interface
+        "ipsec",     // IPSec virtual interfaces
+        "utun",      // User tunnel interfaces
+        "feth",      // Fake ethernet interfaces (used by containers)
+        "gif",       // Generic tunnel interfaces
+        "stf",       // 6to4 tunnel interfaces
+        "XHC",       // USB interfaces that don't support capture
+        "lo",        // Loopback (usually problematic)
+    ];
+    
+    for prefix in &unsupported_prefixes {
+        if adapter_name.starts_with(prefix) {
+            return true;
+        }
+    }
+    
+    // Also check for numbered variants
+    if adapter_name.starts_with("anpi") || 
+       adapter_name.starts_with("ipsec") ||
+       adapter_name.starts_with("utun") ||
+       adapter_name.starts_with("feth") {
+        return true;
+    }
+    
+    false
 }
 
 pub async fn process_real_packet(
