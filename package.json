@@ -10,7 +10,10 @@
     "tauri": "tauri",
     "tauri:build": "tauri build",
     "tauri:build:macos": "npm run build && tauri build && bash post-build-macos.sh",
+    "tauri:build:windows": "npm run build && tauri build && post-build-windows.bat",
     "bundle:macos": "npm run tauri:build:macos",
+    "bundle:windows": "npm run tauri:build:windows",
+    "bundle": "npm run build && tauri build && npm run postbuild",
     "postbuild": "node scripts/post-build.js"
   },
   "dependencies": {

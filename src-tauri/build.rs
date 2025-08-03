@@ -1,9 +1,12 @@
 fn main() {
     use std::env;
     
-    // Set up npcap library path for Windows
+    // Set up npcap library path for Windows with bundling support
     #[cfg(target_os = "windows")]
     {
+        use std::path::Path;
+        use std::fs;
+        
         println!("cargo:rerun-if-env-changed=LIBPCAP_LIBDIR");
         println!("cargo:rerun-if-env-changed=PCAP_LIBDIR");
         println!("cargo:rerun-if-env-changed=NPCAP_SDK_LIB");
@@ -22,14 +25,41 @@ fn main() {
             "C:\\Users\\Administrator\\Downloads\\npcap-sdk-1.15\\Lib".to_string(),
             "C:\\npcap-sdk\\Lib\\x64".to_string(),
             "C:\\npcap-sdk\\Lib".to_string(),
+            // Standard Npcap installation paths
+            "C:\\Windows\\System32\\Npcap".to_string(),
+            "C:\\Windows\\SysWOW64\\Npcap".to_string(),
+            // Program Files paths
+            "C:\\Program Files\\Npcap".to_string(),
+            "C:\\Program Files (x86)\\Npcap".to_string(),
         ];
 
         let mut lib_path_found = false;
+        let mut npcap_lib_path = None;
+        let mut wpcap_dll_path = None;
+        
+        // Find the library path
         for path in &possible_paths {
-            if !path.is_empty() && std::path::Path::new(path).exists() {
+            if !path.is_empty() && Path::new(path).exists() {
                 println!("cargo:rustc-link-search=native={}", path);
                 println!("cargo:warning=Found npcap library at: {}", path);
                 lib_path_found = true;
+                npcap_lib_path = Some(path.clone());
+                break;
+            }
+        }
+
+        // Look for wpcap.dll in runtime locations for bundling
+        let dll_search_paths = [
+            "C:\\Windows\\System32\\Npcap\\wpcap.dll",
+            "C:\\Windows\\SysWOW64\\Npcap\\wpcap.dll", 
+            "C:\\Program Files\\Npcap\\wpcap.dll",
+            "C:\\Program Files (x86)\\Npcap\\wpcap.dll",
+        ];
+        
+        for dll_path in &dll_search_paths {
+            if Path::new(dll_path).exists() {
+                wpcap_dll_path = Some(dll_path.to_string());
+                println!("cargo:warning=Found wpcap.dll at: {}", dll_path);
                 break;
             }
         }
@@ -41,12 +71,50 @@ fn main() {
                     println!("cargo:warning=  - {}", path);
                 }
             }
-            println!("cargo:warning=Please set LIBPCAP_LIBDIR or NPCAP_SDK_LIB environment variable or install npcap-sdk.");
+            println!("cargo:warning=Please install Npcap SDK from: https://npcap.com/#download");
+            println!("cargo:warning=Or set NPCAP_SDK_LIB environment variable");
         }
         
-        // Also try to link the wpcap library explicitly
+        // Prepare for Windows app bundle copying (only during release builds)
+        if let Ok(profile) = env::var("PROFILE") {
+            if profile == "release" {
+                if let Some(dll_path) = wpcap_dll_path {
+                    // Copy wpcap.dll to a temporary location for bundling
+                    let out_dir = env::var("OUT_DIR").unwrap();
+                    let temp_npcap_dir = format!("{}\\npcap_bundle", out_dir);
+                    
+                    if let Err(e) = fs::create_dir_all(&temp_npcap_dir) {
+                        println!("cargo:warning=Failed to create temp npcap directory: {}", e);
+                    } else {
+                        let dest_path = format!("{}\\wpcap.dll", temp_npcap_dir);
+                        if let Err(e) = fs::copy(&dll_path, &dest_path) {
+                            println!("cargo:warning=Failed to copy wpcap.dll for bundling: {}", e);
+                        } else {
+                            println!("cargo:warning=Prepared wpcap.dll for app bundle: {} -> {}", dll_path, dest_path);
+                            // Store the paths for post-build processing
+                            println!("cargo:rustc-env=WPCAP_SOURCE_PATH={}", dll_path);
+                            println!("cargo:rustc-env=WPCAP_BUNDLE_PATH={}", dest_path);
+                        }
+                    }
+                    
+                    // Also look for Packet.dll (required by wpcap.dll)
+                    let packet_dll_path = dll_path.replace("wpcap.dll", "Packet.dll");
+                    if Path::new(&packet_dll_path).exists() {
+                        let dest_packet_path = format!("{}\\Packet.dll", temp_npcap_dir);
+                        if let Err(e) = fs::copy(&packet_dll_path, &dest_packet_path) {
+                            println!("cargo:warning=Failed to copy Packet.dll: {}", e);
+                        } else {
+                            println!("cargo:warning=Prepared Packet.dll for app bundle: {} -> {}", packet_dll_path, dest_packet_path);
+                        }
+                    }
+                }
+            }
+        }
+        
+        // Link the required libraries
         println!("cargo:rustc-link-lib=wpcap");
         println!("cargo:rustc-link-lib=ws2_32");
+        println!("cargo:rustc-link-lib=iphlpapi");
     }
 
     // Handle macOS-specific libpcap configuration with bundling support

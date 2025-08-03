@@ -17,6 +17,7 @@ mod network_monitor;
 mod traffic_monitor;
 mod network_storage;
 mod persistent_state;
+mod system_verification;
 #[cfg(target_os = "macos")]
 mod macos_utils;
 
@@ -33,10 +34,11 @@ use crate::time_tracker::initialize_time_tracking;
 use crate::network_monitor::{get_default_network_adapter, get_monitoring_adapters};
 use crate::traffic_monitor::get_or_create_monitor;
 use crate::web_server::start_web_server;
-use crate::commands::{greet, sync_time_data, aggregate_week_activity_logs, get_health_status, get_comprehensive_health_status, get_all_logs, get_recent_logs_limited, clear_all_logs, get_network_adapters_command, get_monitoring_adapters_command, start_network_monitoring, start_comprehensive_monitoring, stop_network_monitoring, stop_comprehensive_monitoring, refresh_and_restart_monitoring, get_network_stats, get_comprehensive_network_stats, is_network_monitoring, is_comprehensive_monitoring_active, get_network_history, get_available_network_dates, cleanup_old_network_data, create_network_backup, restore_network_backup, cleanup_network_backups, get_adapter_persistent_state, get_lifetime_stats, check_unexpected_shutdown, get_current_network_totals, request_network_permissions, check_network_permissions_status};
+use crate::commands::{greet, sync_time_data, aggregate_week_activity_logs, get_health_status, get_comprehensive_health_status, get_all_logs, get_recent_logs_limited, clear_all_logs, get_network_adapters_command, get_monitoring_adapters_command, start_network_monitoring, start_comprehensive_monitoring, stop_network_monitoring, stop_comprehensive_monitoring, refresh_and_restart_monitoring, get_network_stats, get_comprehensive_network_stats, is_network_monitoring, is_comprehensive_monitoring_active, get_network_history, get_available_network_dates, cleanup_old_network_data, create_network_backup, restore_network_backup, cleanup_network_backups, get_adapter_persistent_state, get_lifetime_stats, check_unexpected_shutdown, get_current_network_totals, request_network_permissions, check_network_permissions_status, verify_system_dependencies};
 use crate::ui_setup::{setup_tray_and_window_events, handle_window_event};
 use crate::health_monitor::initialize_health_monitoring;
 use crate::persistent_state::get_persistent_state_manager;
+use crate::system_verification::verify_system_requirements;
 
 #[cfg(target_os = "macos")]
 use dirs;
@@ -62,6 +64,32 @@ fn main() {
     // Initialize health monitoring
     initialize_health_monitoring();
     crate::log_info!("main", "Health monitoring initialized");
+
+    // Verify system requirements for deployment compatibility
+    println!("🔍 Verifying system requirements for network monitoring...");
+    let verification_results = verify_system_requirements();
+    let mut all_checks_passed = true;
+    
+    for (check_name, result) in &verification_results {
+        match result {
+            Ok(msg) => {
+                println!("✅ {}: {}", check_name, msg);
+                crate::log_info!("system_verification", "{}: {}", check_name, msg);
+            }
+            Err(err) => {
+                println!("❌ {}: {}", check_name, err);
+                crate::log_error!("system_verification", "{}: {}", check_name, err);
+                all_checks_passed = false;
+            }
+        }
+    }
+    
+    if all_checks_passed {
+        println!("✅ All system requirements verified - app should work on deployment");
+    } else {
+        println!("⚠️  Some system requirements failed - app may have issues on other machines");
+        println!("💡 Consider running the bundling process or checking deployment documentation");
+    }
 
     // Initialize backup and validation with better error handling
     #[cfg(target_os = "windows")]
@@ -368,7 +396,7 @@ fn main() {
         })
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(
-            tauri::generate_handler![greet, sync_time_data, aggregate_week_activity_logs, get_health_status, get_comprehensive_health_status, get_all_logs, get_recent_logs_limited, clear_all_logs, get_network_adapters_command, get_monitoring_adapters_command, start_network_monitoring, start_comprehensive_monitoring, stop_network_monitoring, stop_comprehensive_monitoring, refresh_and_restart_monitoring, get_network_stats, get_comprehensive_network_stats, is_network_monitoring, is_comprehensive_monitoring_active, get_network_history, get_available_network_dates, cleanup_old_network_data, create_network_backup, restore_network_backup, cleanup_network_backups, get_adapter_persistent_state, get_lifetime_stats, check_unexpected_shutdown, get_current_network_totals, request_network_permissions, check_network_permissions_status]
+            tauri::generate_handler![greet, sync_time_data, aggregate_week_activity_logs, get_health_status, get_comprehensive_health_status, get_all_logs, get_recent_logs_limited, clear_all_logs, get_network_adapters_command, get_monitoring_adapters_command, start_network_monitoring, start_comprehensive_monitoring, stop_network_monitoring, stop_comprehensive_monitoring, refresh_and_restart_monitoring, get_network_stats, get_comprehensive_network_stats, is_network_monitoring, is_comprehensive_monitoring_active, get_network_history, get_available_network_dates, cleanup_old_network_data, create_network_backup, restore_network_backup, cleanup_network_backups, get_adapter_persistent_state, get_lifetime_stats, check_unexpected_shutdown, get_current_network_totals, request_network_permissions, check_network_permissions_status, verify_system_dependencies]
         )
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
