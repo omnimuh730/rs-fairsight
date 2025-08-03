@@ -92,7 +92,7 @@ pub fn request_network_permissions() -> Result<(), String> {
         }
     }
 }
-
+/*
 #[cfg(target_os = "macos")]
 pub fn fix_bpf_permissions() -> Result<(), String> {
     use std::process::Command;
@@ -124,7 +124,7 @@ pub fn fix_bpf_permissions() -> Result<(), String> {
         }
     }
 }
-
+*/
 #[cfg(target_os = "macos")]
 pub fn get_permission_instructions() -> String {
     format!(

@@ -486,12 +486,13 @@ pub fn get_current_network_totals() -> Result<std::collections::HashMap<String, 
 // macOS Network Permission Functions
 #[cfg(target_os = "macos")]
 async fn check_network_permissions() -> Result<(), String> {
-    use crate::macos_utils::check_bpf_permissions;
     
     crate::log_info!("macos_permissions", "Checking macOS network monitoring permissions via tcpdump...");
     
     // Try to create a test pcap handle to check permissions
     // This will trigger the system permission dialog if needed
+    use std::process::Command;
+
     match Command::new("tcpdump")
         .arg("-D")
         .output()
