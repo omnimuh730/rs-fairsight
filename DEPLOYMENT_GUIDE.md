@@ -18,16 +18,33 @@ Your app creates **self-contained installers** that work on any machine without 
 
 ## 🚀 Building Release Installers
 
+### ⚠️ **IMPORTANT: Build Environment Requirements**
+
+**For successful dependency bundling, you need:**
+
+#### macOS Development Machine:
+- **libpcap installed**: `brew install libpcap` 
+- **Development tools**: Xcode command line tools
+- **Permissions**: Terminal needs Full Disk Access for post-build script
+
+#### Windows Development Machine:  
+- **Npcap SDK installed**: Download from https://npcap.com/#download
+- **Visual Studio Build Tools**: Required for Rust compilation
+- **Admin privileges**: May be needed for accessing system Npcap DLLs
+
 ### Quick Release Commands
 ```bash
-# macOS DMG installer
+# macOS DMG installer (includes post-build libpcap bundling)
 npm run bundle:macos
 
-# Windows MSI installer  
+# Windows MSI installer (includes post-build Npcap bundling)
 npm run bundle:windows
 
-# Cross-platform (auto-detects)
+# Cross-platform build (requires manual post-build step)
 npm run bundle
+
+# Development builds
+npm run tauri:build
 
 # GitHub Actions (automated)
 git tag v1.1.5 && git push origin v1.1.5
@@ -38,40 +55,46 @@ git tag v1.1.5 && git push origin v1.1.5
 ### macOS DMG
 ```
 src-tauri/target/release/bundle/macos/
-└── InnoMonitor.dmg ← Install this on any Mac
-    └── InnoMonitor.app
-        ├── Contents/MacOS/InnoMonitor (binary)
-        └── Contents/Frameworks/libpcap.dylib (bundled)
+└── InnoMonitor.app ← Drag this to Applications
+    ├── Contents/MacOS/InnoMonitor (binary)
+    └── Contents/Frameworks/libpcap.dylib (bundled)
+
+Note: Tauri creates .app directly, not .dmg by default
+To create DMG: use additional tools or Tauri DMG config
 ```
 
 ### Windows MSI
 ```
 src-tauri/target/release/bundle/msi/
 └── InnoMonitor_1.1.4_x64_en-US.msi ← Install this on any Windows PC
-    └── (includes bundled wpcap.dll and Packet.dll)
+    └── Program Files/InnoMonitor/
+        ├── InnoMonitor.exe (main binary)
+        └── libs/ (created by post-build script)
+            ├── wpcap.dll (bundled)
+            └── Packet.dll (bundled)
 ```
 
 ## 🎯 **Answer to Your Key Question:**
 
-### **"If I just install the release setup (DMG for Mac, MSI for Windows), does the lib automatically installed?"**
+### **"If I just install the release setup (APP for Mac, MSI for Windows), does the lib automatically installed?"**
 
 **YES! Absolutely!** 🎉
 
-- **macOS DMG**: When users install your `.dmg`, libpcap is automatically included in the app bundle. No Homebrew needed.
+- **macOS APP**: When users copy your `.app` to Applications, libpcap is automatically included in the app bundle. No Homebrew needed.
 - **Windows MSI**: When users install your `.msi`, Npcap DLLs are automatically installed with the app. No manual Npcap installation needed.
 
 **Users simply:**
-1. Download the installer (`.dmg` or `.msi`)
-2. Double-click to install
+1. Download the installer (`.app` bundle or `.msi`)
+2. Install (drag to Applications on Mac, or run MSI on Windows)
 3. Launch the app - everything works immediately! ✅
 
 ## 🧪 Testing Your Installers
 
-### Test DMG on Clean Mac
+### Test APP Bundle on Clean Mac
 1. Build: `npm run bundle:macos`
-2. Find: `src-tauri/target/release/bundle/macos/InnoMonitor.dmg`
+2. Find: `src-tauri/target/release/bundle/macos/InnoMonitor.app`
 3. Copy to a Mac **without** Homebrew/libpcap
-4. Install by dragging to Applications
+4. Drag to Applications folder
 5. Launch - should work perfectly! ✅
 
 ### Test MSI on Clean Windows PC
@@ -83,17 +106,17 @@ src-tauri/target/release/bundle/msi/
 
 ## 🔍 Installer Verification Commands
 
-### macOS - Check DMG Contents
+### macOS - Check APP Bundle Contents
 ```bash
-# Mount and inspect the DMG
-hdiutil mount src-tauri/target/release/bundle/macos/InnoMonitor.dmg
+# Check the app bundle directly
+ls -la src-tauri/target/release/bundle/macos/InnoMonitor.app/Contents/Frameworks/
 
-# Check bundled libraries
-otool -L /Volumes/InnoMonitor/InnoMonitor.app/Contents/MacOS/InnoMonitor | grep pcap
+# Check bundled libraries in the binary
+otool -L src-tauri/target/release/bundle/macos/InnoMonitor.app/Contents/MacOS/InnoMonitor | grep pcap
 # Should show: @executable_path/../Frameworks/libpcap.*.dylib
 
-# Unmount
-hdiutil unmount /Volumes/InnoMonitor
+# Alternative: Check from /Applications if copied there
+otool -L /Applications/InnoMonitor.app/Contents/MacOS/InnoMonitor | grep pcap
 ```
 
 ### Windows - Check MSI Contents  
@@ -168,17 +191,19 @@ Even with bundled dependencies, users need to grant some permissions:
 
 ### What Makes Installers Self-Contained
 
-#### macOS DMG Process
-1. **Build**: Tauri creates `.app` bundle
-2. **Post-Build**: Script copies libpcap to `Contents/Frameworks/`
-3. **Relink**: Updates binary to use `@executable_path/../Frameworks/libpcap.dylib`
-4. **Package**: Tauri creates `.dmg` with self-contained `.app`
+#### macOS APP Bundle Process
+1. **Build**: Tauri creates `.app` bundle  
+2. **build.rs**: Prepares libpcap for bundling during release builds
+3. **Post-Build**: `post-build-macos.sh` copies libpcap to `Contents/Frameworks/`
+4. **Relink**: Updates binary to use `@executable_path/../Frameworks/libpcap.dylib`
+5. **Package**: Ready-to-deploy self-contained `.app`
 
 #### Windows MSI Process  
-1. **Build**: Tauri creates binary + installer template
-2. **Post-Build**: Script finds system Npcap DLLs and copies to bundle
-3. **Package**: MSI includes both app binary and required DLLs
-4. **Install**: MSI extracts everything to Program Files
+1. **Build**: Tauri creates binary + MSI installer template
+2. **build.rs**: Finds and prepares Npcap DLLs for bundling during release builds  
+3. **Post-Build**: `post-build-windows.bat` copies DLLs to installer bundle
+4. **Package**: MSI includes both app binary and required DLLs
+5. **Install**: MSI extracts everything to Program Files with libs folder
 
 ### Dependency Resolution at Runtime
 
@@ -230,10 +255,11 @@ signtool sign /f certificate.p12 /p password /t http://timestamp.comodoca.com In
 
 ### Alternative Distribution Methods
 
-1. **Direct Download**: Host DMG/MSI files on your website
+1. **Direct Download**: Host .app/.msi files on your website
 2. **GitHub Releases**: Automatic releases via GitHub Actions (current setup)
-3. **App Stores**: Submit to Mac App Store / Microsoft Store (requires additional setup)
-4. **Enterprise**: Deploy via MDM/SCCM for corporate environments
+3. **DMG Creation**: Add additional tools to create .dmg from .app
+4. **App Stores**: Submit to Mac App Store / Microsoft Store (requires additional setup)
+5. **Enterprise**: Deploy via MDM/SCCM for corporate environments
 
 ## 🎉 Summary
 
@@ -249,3 +275,46 @@ Users can download and install your app on any Mac or Windows computer without n
 **Just download → install → run → works!** 🚀
 
 The installers are truly self-contained and production-ready for distribution to end users.
+
+## 🔧 Troubleshooting Common Build Issues
+
+### macOS Build Problems
+```bash
+# Issue: libpcap not found during build
+Error: cargo:warning=libpcap not found in any standard location!
+
+# Solution: Install libpcap via Homebrew
+brew install libpcap
+
+# Issue: Post-build script permission denied
+Error: Permission denied: post-build-macos.sh
+
+# Solution: Make script executable
+chmod +x post-build-macos.sh
+```
+
+### Windows Build Problems  
+```cmd
+REM Issue: Npcap SDK not found during build
+Error: cargo:warning=npcap-sdk not found in any of the following locations
+
+REM Solution: Install Npcap SDK and set environment variable
+set NPCAP_SDK_LIB=C:\npcap-sdk\Lib\x64
+
+REM Issue: DLL bundling fails
+Error: Failed to copy wpcap.dll for bundling
+
+REM Solution: Run as administrator or install Npcap runtime
+```
+
+### Verification Commands
+```bash
+# macOS: Verify bundled libpcap
+otool -L InnoMonitor.app/Contents/MacOS/InnoMonitor | grep pcap
+
+# Windows: Verify bundled DLLs  
+dir src-tauri\target\release\libs\*.dll
+
+# Check build.rs bundling logs
+cargo build --release 2>&1 | grep -i "bundled\|prepared"
+```

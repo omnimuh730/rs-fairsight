@@ -125,34 +125,72 @@ fn main() {
         // Prepare for Windows app bundle copying (only during release builds)
         if let Ok(profile) = env::var("PROFILE") {
             if profile == "release" {
-                if let Some(dll_path) = wpcap_dll_path {
-                    // Copy wpcap.dll to a temporary location for bundling
-                    let out_dir = env::var("OUT_DIR").unwrap();
-                    let temp_npcap_dir = format!("{}\\npcap_bundle", out_dir);
+                println!("cargo:warning=🔧 Release build detected - preparing dependency bundling");
+                
+                // Create bundling directory structure
+                let out_dir = env::var("OUT_DIR").unwrap();
+                let bundle_base = format!("{}\\..\\..\\..\\bundle_dependencies", out_dir);
+                let bundle_libs_dir = format!("{}\\libs", bundle_base);
+                
+                if let Err(e) = fs::create_dir_all(&bundle_libs_dir) {
+                    println!("cargo:warning=Failed to create bundle directory: {}", e);
+                } else {
+                    println!("cargo:warning=📁 Created bundle directory: {}", bundle_libs_dir);
                     
-                    if let Err(e) = fs::create_dir_all(&temp_npcap_dir) {
-                        println!("cargo:warning=Failed to create temp npcap directory: {}", e);
+                    // Bundle runtime DLLs if found
+                    let dll_bundled = if let Some(ref dll_path) = wpcap_dll_path {
+                        let wpcap_dest = format!("{}\\wpcap.dll", bundle_libs_dir);
+                        if let Err(e) = fs::copy(dll_path, &wpcap_dest) {
+                            println!("cargo:warning=⚠️  Failed to copy wpcap.dll for bundling: {}", e);
+                            false
+                        } else {
+                            println!("cargo:warning=✅ Bundled wpcap.dll: {} -> {}", dll_path, wpcap_dest);
+                            
+                            // Also bundle Packet.dll (required dependency)
+                            let packet_dll_path = dll_path.replace("wpcap.dll", "Packet.dll");
+                            if Path::new(&packet_dll_path).exists() {
+                                let packet_dest = format!("{}\\Packet.dll", bundle_libs_dir);
+                                if let Err(e) = fs::copy(&packet_dll_path, &packet_dest) {
+                                    println!("cargo:warning=⚠️  Failed to copy Packet.dll: {}", e);
+                                } else {
+                                    println!("cargo:warning=✅ Bundled Packet.dll: {} -> {}", packet_dll_path, packet_dest);
+                                }
+                            }
+                            
+                            // Bundle NPF service driver if available
+                            let npf_sys_path = dll_path.replace("wpcap.dll", "NPF.sys");
+                            if Path::new(&npf_sys_path).exists() {
+                                let npf_dest = format!("{}\\NPF.sys", bundle_libs_dir);
+                                if let Err(e) = fs::copy(&npf_sys_path, &npf_dest) {
+                                    println!("cargo:warning=⚠️  Failed to copy NPF.sys: {}", e);
+                                } else {
+                                    println!("cargo:warning=✅ Bundled NPF.sys: {} -> {}", npf_sys_path, npf_dest);
+                                }
+                            }
+                            true
+                        }
                     } else {
-                        let dest_path = format!("{}\\wpcap.dll", temp_npcap_dir);
-                        if let Err(e) = fs::copy(&dll_path, &dest_path) {
-                            println!("cargo:warning=Failed to copy wpcap.dll for bundling: {}", e);
-                        } else {
-                            println!("cargo:warning=Prepared wpcap.dll for app bundle: {} -> {}", dll_path, dest_path);
-                            // Store the paths for post-build processing
-                            println!("cargo:rustc-env=WPCAP_SOURCE_PATH={}", dll_path);
-                            println!("cargo:rustc-env=WPCAP_BUNDLE_PATH={}", dest_path);
-                        }
-                    }
+                        println!("cargo:warning=⚠️  No Npcap runtime DLLs found for bundling");
+                        println!("cargo:warning=💡 Users will need to install Npcap separately");
+                        false
+                    };
                     
-                    // Also look for Packet.dll (required by wpcap.dll)
-                    let packet_dll_path = dll_path.replace("wpcap.dll", "Packet.dll");
-                    if Path::new(&packet_dll_path).exists() {
-                        let dest_packet_path = format!("{}\\Packet.dll", temp_npcap_dir);
-                        if let Err(e) = fs::copy(&packet_dll_path, &dest_packet_path) {
-                            println!("cargo:warning=Failed to copy Packet.dll: {}", e);
-                        } else {
-                            println!("cargo:warning=Prepared Packet.dll for app bundle: {} -> {}", packet_dll_path, dest_packet_path);
-                        }
+                    // Create bundling metadata file
+                    let metadata_file = format!("{}\\bundle_info.txt", bundle_base);
+                    let metadata_content = format!(
+                        "InnoMonitor Windows Bundle\n\
+                        Build Time: {}\n\
+                        Npcap DLLs: {}\n\
+                        Bundle Directory: {}\n",
+                        chrono::Utc::now().format("%Y-%m-%d %H:%M:%S UTC"),
+                        if dll_bundled { "Included" } else { "Not Found" },
+                        bundle_libs_dir
+                    );
+                    
+                    if let Err(e) = fs::write(&metadata_file, metadata_content) {
+                        println!("cargo:warning=Failed to write bundle metadata: {}", e);
+                    } else {
+                        println!("cargo:warning=📝 Created bundle metadata: {}", metadata_file);
                     }
                 }
             }
