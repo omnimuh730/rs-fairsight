@@ -89,7 +89,7 @@ fn try_open_capture_with_promisc(inactive: pcap::Capture<pcap::Inactive>, adapte
             Some(cap)
         }
         Err(e) => {
-            let error_msg = format!("{}", e);
+            let _error_msg = format!("{}", e);
             
             // Handle macOS-specific errors
             #[cfg(target_os = "macos")]

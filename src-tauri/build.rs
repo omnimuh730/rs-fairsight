@@ -11,40 +11,66 @@ fn main() {
         println!("cargo:rerun-if-env-changed=PCAP_LIBDIR");
         println!("cargo:rerun-if-env-changed=NPCAP_SDK_LIB");
         
-        // Try to find npcap-sdk in various locations, prioritizing environment variables
+        // Try to find npcap-sdk in various locations, prioritizing environment variables and x64 paths
         let possible_paths = [
-            // GitHub Actions / CI environment variables
+            // GitHub Actions / CI environment variables (x64 priority)
             std::env::var("LIBPCAP_LIBDIR").unwrap_or_default(),
             std::env::var("PCAP_LIBDIR").unwrap_or_default(),
             std::env::var("NPCAP_SDK_LIB").unwrap_or_default(),
-            // Temporary directory for GitHub Actions
+            // Temporary directory for GitHub Actions (x64 priority)
             format!("{}\\npcap-sdk\\Lib\\x64", std::env::var("TEMP").unwrap_or_default()),
-            format!("{}\\npcap-sdk\\Lib", std::env::var("TEMP").unwrap_or_default()),
-            // Local development paths
+            // Local development paths (x64 priority)
             "C:\\Users\\Administrator\\Downloads\\npcap-sdk-1.15\\Lib\\x64".to_string(),
-            "C:\\Users\\Administrator\\Downloads\\npcap-sdk-1.15\\Lib".to_string(),
             "C:\\npcap-sdk\\Lib\\x64".to_string(),
-            "C:\\npcap-sdk\\Lib".to_string(),
-            // Standard Npcap installation paths
+            // x64 system paths
             "C:\\Windows\\System32\\Npcap".to_string(),
-            "C:\\Windows\\SysWOW64\\Npcap".to_string(),
-            // Program Files paths
             "C:\\Program Files\\Npcap".to_string(),
+            // Fallback to non-x64 paths only if x64 not found
+            format!("{}\\npcap-sdk\\Lib", std::env::var("TEMP").unwrap_or_default()),
+            "C:\\Users\\Administrator\\Downloads\\npcap-sdk-1.15\\Lib".to_string(),
+            "C:\\npcap-sdk\\Lib".to_string(),
+            "C:\\Windows\\SysWOW64\\Npcap".to_string(),
             "C:\\Program Files (x86)\\Npcap".to_string(),
         ];
 
         let mut lib_path_found = false;
-        let mut npcap_lib_path = None;
+//        let mut npcap_lib_path = None;
         let mut wpcap_dll_path = None;
         
-        // Find the library path
+        // Find the library path - prioritize x64 libraries
         for path in &possible_paths {
             if !path.is_empty() && Path::new(path).exists() {
-                println!("cargo:rustc-link-search=native={}", path);
-                println!("cargo:warning=Found npcap library at: {}", path);
-                lib_path_found = true;
-                npcap_lib_path = Some(path.clone());
-                break;
+                // Check if this path contains x64 libraries (prefer x64 for 64-bit builds)
+                let wpcap_lib = Path::new(path).join("wpcap.lib");
+                if wpcap_lib.exists() {
+                    // For 64-bit builds, skip non-x64 paths if we haven't checked x64 paths yet
+                    if cfg!(target_arch = "x86_64") && !path.contains("x64") {
+                        // Check if there's an x64 version available
+                        let potential_x64_path = if path.ends_with("\\Lib") {
+                            format!("{}\\x64", path)
+                        } else {
+                            format!("{}\\x64", path)
+                        };
+                        
+                        let x64_wpcap_lib = Path::new(&potential_x64_path).join("wpcap.lib");
+                        if x64_wpcap_lib.exists() {
+                            // Use the x64 version instead
+                            println!("cargo:rustc-link-search=native={}", potential_x64_path);
+                            println!("cargo:warning=Found npcap library at: {} (using x64 version)", potential_x64_path);
+                            lib_path_found = true;
+//                            npcap_lib_path = Some(potential_x64_path);
+                            break;
+                        } else {
+                            println!("cargo:warning=WARNING: Using non-x64 library path for 64-bit build: {}", path);
+                            println!("cargo:warning=This may cause architecture mismatch errors!");
+                        }
+                    }
+                    
+                    println!("cargo:rustc-link-search=native={}", path);
+                    println!("cargo:warning=Found npcap library at: {}", path);
+                    lib_path_found = true;
+                    break;
+                }
             }
         }
 
