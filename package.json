@@ -14,7 +14,7 @@
     "bundle:macos": "npm run tauri:build:macos",
     "bundle:windows": "npm run tauri:build:windows",
     "bundle": "npm run build && tauri build && npm run postbuild",
-    "postbuild": "node scripts/post-build.js"
+    "postbuild": "node scripts/post-build.cjs"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",

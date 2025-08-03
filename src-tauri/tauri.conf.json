@@ -36,7 +36,27 @@
     ],
     "macOS": {
       "entitlements": "entitlements.plist",
-      "minimumSystemVersion": "10.13"
-    }
+      "minimumSystemVersion": "10.13",
+      "signingIdentity": null
+    },
+    "windows": {
+      "certificateThumbprint": null,
+      "digestAlgorithm": "sha256",
+      "timestampUrl": "",
+      "wix": {
+        "language": ["en-US"]
+      },
+      "nsis": {
+        "displayLanguageSelector": true,
+        "installMode": "currentUser"
+      }
+    },
+    "publisher": "InnoMonitor Team",
+    "copyright": "Copyright © 2025 InnoMonitor Team",
+    "category": "Utility",
+    "shortDescription": "Advanced network activity monitoring and analysis tool",
+    "longDescription": "InnoMonitor provides comprehensive network traffic monitoring with real-time packet capture, automatic adapter filtering, and cross-platform compatibility. Features include traffic deduplication, historical analysis, and detailed network statistics.",
+    "externalBin": [],
+    "resources": []
   }
 }

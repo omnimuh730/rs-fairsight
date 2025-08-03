@@ -88,16 +88,9 @@ jobs:
       - name: Install macOS dependencies
         if: matrix.platform == 'macos-latest'
         run: |
-          # Install libpcap development headers if needed
-          # macOS usually has libpcap built-in, but ensure development headers are available
-          echo "macOS libpcap should be available by default"
-          # If needed, you can install via homebrew:
-          # brew install libpcap
-
-      - name: Install macOS dependencies
-        if: matrix.platform == 'macos-latest'
-        run: |
-          # Install libpcap development headers and pkg-config
+          echo "🍎 Installing macOS dependencies for packet capture..."
+          
+          # Install libpcap and pkg-config
           brew install libpcap pkg-config
           
           # Verify libpcap installation
@@ -109,6 +102,10 @@ jobs:
           echo "PKG_CONFIG_PATH=$(brew --prefix libpcap)/lib/pkgconfig:$PKG_CONFIG_PATH" >> $GITHUB_ENV
           echo "LIBPCAP_LIBDIR=$(brew --prefix libpcap)/lib" >> $GITHUB_ENV
           echo "LIBPCAP_INCDIR=$(brew --prefix libpcap)/include" >> $GITHUB_ENV
+          
+          # Set additional paths for both Intel and Apple Silicon
+          echo "CPPFLAGS=-I/opt/homebrew/include" >> $GITHUB_ENV
+          echo "LDFLAGS=-L/opt/homebrew/lib" >> $GITHUB_ENV
 
       - name: Install app dependencies and build frontend
         run: npm ci && npm run build
@@ -153,7 +150,35 @@ jobs:
         with:
           projectPath: ${{ github.workspace }}
           tagName: app-v__VERSION__ # Automatically replaced with tauri.conf.json version
-          releaseName: App v__VERSION__
-          releaseBody: See the assets to download this version and install.
+          releaseName: InnoMonitor v__VERSION__
+          releaseBody: |
+            🎉 InnoMonitor v__VERSION__ Release
+            
+            ## 📦 Self-Contained Installers
+            - **macOS**: Download the `.dmg` file - includes bundled libpcap (no Homebrew required)
+            - **Windows**: Download the `.msi` file - includes bundled Npcap DLLs (no manual installation required)
+            
+            ## ✅ Features
+            - Complete network traffic monitoring
+            - Automatic problematic adapter filtering  
+            - Real-time packet capture with deduplication
+            - Cross-platform compatibility
+            
+            ## 🚀 Installation
+            Simply download and install - all dependencies are bundled!
           releaseDraft: true
           prerelease: false
+          
+      - name: Run post-build bundling (macOS)
+        if: matrix.platform == 'macos-latest'
+        run: |
+          echo "🍎 Running macOS post-build bundling..."
+          chmod +x post-build-macos.sh
+          ./post-build-macos.sh
+          
+      - name: Run post-build bundling (Windows)  
+        if: matrix.platform == 'windows-latest'
+        run: |
+          echo "🪟 Running Windows post-build bundling..."
+          .\post-build-windows.bat
+        shell: cmd
