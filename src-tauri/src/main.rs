@@ -30,10 +30,10 @@ use crate::encryption::KEY;
 use crate::file_utils::{is_log_file_valid, load_backup};
 use crate::hooks::setup_hooks;
 use crate::time_tracker::initialize_time_tracking;
-use crate::network_monitor::get_default_network_adapter;
+use crate::network_monitor::{get_default_network_adapter, get_monitoring_adapters};
 use crate::traffic_monitor::get_or_create_monitor;
 use crate::web_server::start_web_server;
-use crate::commands::{greet, sync_time_data, aggregate_week_activity_logs, get_health_status, get_all_logs, get_recent_logs_limited, clear_all_logs, get_network_adapters_command, start_network_monitoring, stop_network_monitoring, get_network_stats, is_network_monitoring, get_network_history, get_available_network_dates, cleanup_old_network_data, create_network_backup, restore_network_backup, cleanup_network_backups, get_adapter_persistent_state, get_lifetime_stats, check_unexpected_shutdown, get_current_network_totals, request_network_permissions, check_network_permissions_status};
+use crate::commands::{greet, sync_time_data, aggregate_week_activity_logs, get_health_status, get_comprehensive_health_status, get_all_logs, get_recent_logs_limited, clear_all_logs, get_network_adapters_command, get_monitoring_adapters_command, start_network_monitoring, start_comprehensive_monitoring, stop_network_monitoring, stop_comprehensive_monitoring, get_network_stats, get_comprehensive_network_stats, is_network_monitoring, is_comprehensive_monitoring_active, get_network_history, get_available_network_dates, cleanup_old_network_data, create_network_backup, restore_network_backup, cleanup_network_backups, get_adapter_persistent_state, get_lifetime_stats, check_unexpected_shutdown, get_current_network_totals, request_network_permissions, check_network_permissions_status};
 use crate::ui_setup::{setup_tray_and_window_events, handle_window_event};
 use crate::health_monitor::initialize_health_monitoring;
 use crate::persistent_state::get_persistent_state_manager;
@@ -190,6 +190,131 @@ fn main() {
                 }
             }
             
+            // Auto-start comprehensive network monitoring with packet deduplication
+            let _app_handle = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                println!("🔍 Auto-starting comprehensive network monitoring...");
+                
+                // Wait a moment for app to fully initialize
+                tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
+                
+                // Check network permissions on macOS first
+                #[cfg(target_os = "macos")]
+                {
+                    use std::process::Command;
+                    
+                    crate::log_info!("network_permissions", "Checking macOS network monitoring permissions...");
+                    
+                    match Command::new("tcpdump").arg("-D").output() {
+                        Ok(output) => {
+                            if !output.status.success() {
+                                let stderr = String::from_utf8_lossy(&output.stderr);
+                                let stdout = String::from_utf8_lossy(&output.stdout);
+                                
+                                crate::log_error!("network_permissions", "tcpdump permission check failed - stdout: {}, stderr: {}", stdout, stderr);
+                                
+                                if stderr.contains("permission") || stderr.contains("Operation not permitted") {
+                                    let error_msg = "Network monitoring requires administrator privileges on macOS";
+                                    crate::log_error!("network_permissions", "{}", error_msg);
+                                    println!("❌ {}", error_msg);
+                                    println!("💡 Please allow network access in System Preferences → Security & Privacy → Privacy → Developer Tools");
+                                    println!("   Or run the application with elevated permissions");
+                                    
+                                    // Log specific guidance
+                                    crate::log_info!("network_permissions", "To fix: Open System Preferences → Security & Privacy → Privacy → Developer Tools → Enable for this app");
+                                    return;
+                                } else {
+                                    crate::log_warning!("network_permissions", "tcpdump failed but not due to permissions - continuing with monitoring attempt");
+                                }
+                            } else {
+                                crate::log_info!("network_permissions", "✅ Network permissions verified on macOS");
+                                println!("✅ Network permissions verified on macOS");
+                            }
+                        },
+                        Err(e) => {
+                            crate::log_warning!("network_permissions", "Could not verify network permissions (tcpdump not available): {}. Continuing anyway...", e);
+                            println!("⚠️  Could not verify network permissions: {}. Continuing anyway...", e);
+                        }
+                    }
+                }
+                
+                match get_monitoring_adapters() {
+                    Ok(adapters) => {
+                        if !adapters.is_empty() {
+                            crate::log_info!("network_monitoring", "Found {} suitable adapters for comprehensive monitoring: {:?}", adapters.len(), adapters);
+                            println!("🚀 Starting comprehensive monitoring on {} adapters with packet deduplication", adapters.len());
+                            
+                            let mut started_adapters = Vec::new();
+                            let mut failed_adapters = Vec::new();
+                            
+                            for adapter_name in adapters {
+                                crate::log_info!("network_monitoring", "Attempting to start monitoring on adapter: {}", adapter_name);
+                                
+                                let monitor = get_or_create_monitor(&adapter_name);
+                                match monitor.start_monitoring().await {
+                                    Ok(_) => {
+                                        crate::log_info!("network_monitoring", "✅ Successfully started monitoring on adapter: {}", adapter_name);
+                                        started_adapters.push(adapter_name);
+                                    }
+                                    Err(e) => {
+                                        crate::log_error!("network_monitoring", "❌ Failed to start monitoring on adapter '{}': {}", adapter_name, e);
+                                        failed_adapters.push(format!("{}: {}", adapter_name, e));
+                                    }
+                                }
+                            }
+                            
+                            if !started_adapters.is_empty() {
+                                crate::log_info!("network_monitoring", "Comprehensive monitoring successfully started on {} adapters: {:?}", started_adapters.len(), started_adapters);
+                                println!("✅ Auto-started comprehensive monitoring on {} adapters: {:?}", 
+                                    started_adapters.len(), started_adapters);
+                                
+                                if !failed_adapters.is_empty() {
+                                    crate::log_warning!("network_monitoring", "Some adapters failed to start: {:?}", failed_adapters);
+                                    println!("⚠️  Some adapters failed to start: {:?}", failed_adapters);
+                                }
+                                
+                                println!("🔄 Packet deduplication active - monitoring all adapters without duplicate counting");
+                            } else {
+                                crate::log_error!("network_monitoring", "Failed to start monitoring on any adapters: {:?}", failed_adapters);
+                                println!("❌ Failed to start monitoring on any adapters: {:?}", failed_adapters);
+                            }
+                        } else {
+                            crate::log_warning!("network_monitoring", "No suitable adapters found for comprehensive monitoring");
+                            println!("⚠️  No suitable adapters found for comprehensive monitoring");
+                        }
+                    }
+                    Err(e) => {
+                        crate::log_error!("network_monitoring", "Failed to get monitoring adapters: {}", e);
+                        println!("❌ Failed to get monitoring adapters: {}", e);
+                        
+                        // Fallback to single adapter monitoring
+                        crate::log_info!("network_monitoring", "Attempting fallback to single adapter monitoring...");
+                        println!("🔄 Attempting fallback to single adapter monitoring...");
+                        
+                        match get_default_network_adapter() {
+                            Ok(adapter_name) => {
+                                crate::log_info!("network_monitoring", "Fallback: Found default adapter: {}", adapter_name);
+                                let monitor = get_or_create_monitor(&adapter_name);
+                                match monitor.start_monitoring().await {
+                                    Ok(_) => {
+                                        crate::log_info!("network_monitoring", "✅ Fallback: Successfully started monitoring single adapter: {}", adapter_name);
+                                        println!("✅ Fallback: Started monitoring single adapter: {}", adapter_name);
+                                    }
+                                    Err(e) => {
+                                        crate::log_error!("network_monitoring", "❌ Fallback failed for adapter '{}': {}", adapter_name, e);
+                                        println!("❌ Fallback failed: {}", e);
+                                    }
+                                }
+                            }
+                            Err(e) => {
+                                crate::log_error!("network_monitoring", "❌ Could not find any network adapter: {}", e);
+                                println!("❌ Could not find any network adapter: {}", e);
+                            }
+                        }
+                    }
+                }
+            });
+            
             Ok(())
         })
         .on_window_event(|window, event| {
@@ -214,7 +339,7 @@ fn main() {
         })
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(
-            tauri::generate_handler![greet, sync_time_data, aggregate_week_activity_logs, get_health_status, get_all_logs, get_recent_logs_limited, clear_all_logs, get_network_adapters_command, start_network_monitoring, stop_network_monitoring, get_network_stats, is_network_monitoring, get_network_history, get_available_network_dates, cleanup_old_network_data, create_network_backup, restore_network_backup, cleanup_network_backups, get_adapter_persistent_state, get_lifetime_stats, check_unexpected_shutdown, get_current_network_totals, request_network_permissions, check_network_permissions_status]
+            tauri::generate_handler![greet, sync_time_data, aggregate_week_activity_logs, get_health_status, get_comprehensive_health_status, get_all_logs, get_recent_logs_limited, clear_all_logs, get_network_adapters_command, get_monitoring_adapters_command, start_network_monitoring, start_comprehensive_monitoring, stop_network_monitoring, stop_comprehensive_monitoring, get_network_stats, get_comprehensive_network_stats, is_network_monitoring, is_comprehensive_monitoring_active, get_network_history, get_available_network_dates, cleanup_old_network_data, create_network_backup, restore_network_backup, cleanup_network_backups, get_adapter_persistent_state, get_lifetime_stats, check_unexpected_shutdown, get_current_network_totals, request_network_permissions, check_network_permissions_status]
         )
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -1,7 +1,7 @@
 use crate::time_tracker::aggregate_log_results;
-use crate::health_monitor::HEALTH_MONITOR;
+use crate::health_monitor::{HEALTH_MONITOR, get_comprehensive_system_health, SystemHealthStatus};
 use crate::logger::{get_logs, get_recent_logs, clear_logs, LogEntry};
-use crate::network_monitor::{get_network_adapters, NetworkAdapter};
+use crate::network_monitor::{get_network_adapters, get_monitoring_adapters, NetworkAdapter};
 // use crate::network_engine::{get_network_engine, start_network_engine, stop_network_engine};
 // use crate::state_manager::{get_state_manager, AdapterMetrics, SystemState};
 use crate::traffic_monitor::{get_or_create_monitor, MonitoringStats};
@@ -61,6 +61,11 @@ pub fn get_health_status() -> String {
 }
 
 #[tauri::command]
+pub fn get_comprehensive_health_status() -> SystemHealthStatus {
+    get_comprehensive_system_health()
+}
+
+#[tauri::command]
 pub fn get_all_logs() -> Vec<LogEntry> {
     get_logs()
 }
@@ -82,6 +87,11 @@ pub fn get_network_adapters_command() -> Result<Vec<NetworkAdapter>, String> {
 }
 
 #[tauri::command]
+pub fn get_monitoring_adapters_command() -> Result<Vec<String>, String> {
+    get_monitoring_adapters()
+}
+
+#[tauri::command]
 pub async fn start_network_monitoring(adapter_name: String) -> Result<String, String> {
     #[cfg(target_os = "macos")]
     {
@@ -99,10 +109,79 @@ pub async fn start_network_monitoring(adapter_name: String) -> Result<String, St
 }
 
 #[tauri::command]
+pub async fn start_comprehensive_monitoring() -> Result<String, String> {
+    #[cfg(target_os = "macos")]
+    {
+        // Check if we have network access permissions on macOS
+        if let Err(permission_error) = check_network_permissions().await {
+            return Err(format!("Network permissions required: {}", permission_error));
+        }
+    }
+    
+    let adapters = get_monitoring_adapters()?;
+    
+    if adapters.is_empty() {
+        return Err("No suitable adapters found for comprehensive monitoring".to_string());
+    }
+    
+    println!("🚀 Starting comprehensive monitoring on {} adapters with packet deduplication", adapters.len());
+    
+    let mut started_adapters = Vec::new();
+    let mut failed_adapters = Vec::new();
+    
+    for adapter_name in adapters {
+        let monitor = get_or_create_monitor(&adapter_name);
+        match monitor.start_monitoring().await {
+            Ok(_) => {
+                started_adapters.push(adapter_name);
+            }
+            Err(e) => {
+                failed_adapters.push(format!("{}: {}", adapter_name, e));
+            }
+        }
+    }
+    
+    if started_adapters.is_empty() {
+        Err(format!("Failed to start monitoring on any adapters: {:?}", failed_adapters))
+    } else {
+        let result = format!(
+            "Started comprehensive monitoring on {} adapters: {:?}{}. Packet deduplication ensures accurate traffic counting across all adapters.",
+            started_adapters.len(),
+            started_adapters,
+            if !failed_adapters.is_empty() {
+                format!(" (Failed: {:?})", failed_adapters)
+            } else {
+                String::new()
+            }
+        );
+        Ok(result)
+    }
+}
+
+#[tauri::command]
 pub fn stop_network_monitoring(adapter_name: String) -> Result<String, String> {
     let monitor = get_or_create_monitor(&adapter_name);
     monitor.stop_monitoring();
     Ok(format!("Stopped monitoring adapter: {}", adapter_name))
+}
+
+#[tauri::command]
+pub fn stop_comprehensive_monitoring() -> Result<String, String> {
+    match get_monitoring_adapters() {
+        Ok(adapters) => {
+            let mut stopped_adapters = Vec::new();
+            
+            for adapter_name in adapters {
+                let monitor = get_or_create_monitor(&adapter_name);
+                monitor.stop_monitoring();
+                stopped_adapters.push(adapter_name);
+            }
+            
+            Ok(format!("Stopped comprehensive monitoring on {} adapters: {:?}", 
+                stopped_adapters.len(), stopped_adapters))
+        }
+        Err(e) => Err(format!("Failed to get monitoring adapters: {}", e))
+    }
 }
 
 #[tauri::command]
@@ -112,9 +191,122 @@ pub fn get_network_stats(adapter_name: String) -> Result<MonitoringStats, String
 }
 
 #[tauri::command]
+pub fn get_comprehensive_network_stats() -> Result<MonitoringStats, String> {
+    let adapters = get_monitoring_adapters()?;
+    
+    let mut combined_stats = MonitoringStats {
+        total_incoming_bytes: 0,
+        total_outgoing_bytes: 0,
+        total_incoming_packets: 0,
+        total_outgoing_packets: 0,
+        monitoring_duration: 0,
+        traffic_rate: Vec::new(),
+        network_hosts: Vec::new(),
+        services: Vec::new(),
+    };
+    
+    let mut all_hosts: std::collections::HashMap<String, crate::traffic_monitor::NetworkHost> = std::collections::HashMap::new();
+    let mut all_services: std::collections::HashMap<String, crate::traffic_monitor::ServiceInfo> = std::collections::HashMap::new();
+    let mut max_duration = 0u64;
+    
+    for adapter_name in adapters {
+        let monitor = get_or_create_monitor(&adapter_name);
+        if monitor.is_monitoring() {
+            let stats = monitor.get_stats();
+            
+            // Aggregate totals
+            combined_stats.total_incoming_bytes += stats.total_incoming_bytes;
+            combined_stats.total_outgoing_bytes += stats.total_outgoing_bytes;
+            combined_stats.total_incoming_packets += stats.total_incoming_packets;
+            combined_stats.total_outgoing_packets += stats.total_outgoing_packets;
+            
+            // Track maximum monitoring duration
+            if stats.monitoring_duration > max_duration {
+                max_duration = stats.monitoring_duration;
+            }
+            
+            // Merge hosts (sum traffic for same IP)
+            for host in stats.network_hosts {
+                if let Some(existing_host) = all_hosts.get_mut(&host.ip) {
+                    existing_host.incoming_bytes += host.incoming_bytes;
+                    existing_host.outgoing_bytes += host.outgoing_bytes;
+                    existing_host.incoming_packets += host.incoming_packets;
+                    existing_host.outgoing_packets += host.outgoing_packets;
+                    if host.first_seen < existing_host.first_seen {
+                        existing_host.first_seen = host.first_seen;
+                    }
+                    if host.last_seen > existing_host.last_seen {
+                        existing_host.last_seen = host.last_seen;
+                    }
+                } else {
+                    all_hosts.insert(host.ip.clone(), host);
+                }
+            }
+            
+            // Merge services (sum traffic for same protocol/port)
+            for service in stats.services {
+                let service_key = format!("{}:{}", service.protocol, service.port);
+                if let Some(existing_service) = all_services.get_mut(&service_key) {
+                    existing_service.bytes += service.bytes;
+                    existing_service.packets += service.packets;
+                } else {
+                    all_services.insert(service_key, service);
+                }
+            }
+        }
+    }
+    
+    combined_stats.monitoring_duration = max_duration;
+    combined_stats.network_hosts = all_hosts.into_values().collect();
+    combined_stats.services = all_services.into_values().collect();
+    
+    // Sort hosts by total bytes (descending)
+    combined_stats.network_hosts.sort_by(|a, b| {
+        let total_a = a.incoming_bytes + a.outgoing_bytes;
+        let total_b = b.incoming_bytes + b.outgoing_bytes;
+        total_b.cmp(&total_a)
+    });
+    
+    // Sort services by bytes (descending)
+    combined_stats.services.sort_by(|a, b| b.bytes.cmp(&a.bytes));
+    
+    // Limit results
+    combined_stats.network_hosts.truncate(1000);
+    combined_stats.services.truncate(100);
+    
+    Ok(combined_stats)
+}
+
+#[tauri::command]
 pub async fn is_network_monitoring(adapter_name: String) -> bool {
     let monitor = get_or_create_monitor(&adapter_name);
     monitor.is_monitoring()
+}
+
+#[tauri::command]
+pub fn is_comprehensive_monitoring_active() -> Result<serde_json::Value, String> {
+    let adapters = get_monitoring_adapters()?;
+    let mut monitoring_status = std::collections::HashMap::new();
+    let mut total_monitoring = 0;
+    
+    for adapter_name in &adapters {
+        let monitor = get_or_create_monitor(adapter_name);
+        let is_monitoring = monitor.is_monitoring();
+        monitoring_status.insert(adapter_name.clone(), is_monitoring);
+        if is_monitoring {
+            total_monitoring += 1;
+        }
+    }
+    
+    let result = serde_json::json!({
+        "total_adapters": adapters.len(),
+        "monitoring_adapters": total_monitoring,
+        "is_comprehensive": total_monitoring > 1,
+        "adapter_status": monitoring_status,
+        "adapters": adapters
+    });
+    
+    Ok(result)
 }
 
 #[tauri::command]
@@ -296,10 +488,40 @@ pub fn get_current_network_totals() -> Result<std::collections::HashMap<String, 
 async fn check_network_permissions() -> Result<(), String> {
     use crate::macos_utils::check_bpf_permissions;
     
-    // Use the enhanced macOS permission checking
-    match check_bpf_permissions() {
-        Ok(_) => Ok(()),
-        Err(e) => Err(format!("Network monitoring requires elevated privileges. {}", e))
+    crate::log_info!("macos_permissions", "Checking macOS network monitoring permissions via tcpdump...");
+    
+    // Try to create a test pcap handle to check permissions
+    // This will trigger the system permission dialog if needed
+    match Command::new("tcpdump")
+        .arg("-D")
+        .output()
+    {
+        Ok(output) => {
+            crate::log_info!("macos_permissions", "tcpdump command executed - status: {}", output.status);
+            
+            if !output.status.success() {
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                let stdout = String::from_utf8_lossy(&output.stdout);
+                
+                crate::log_warning!("macos_permissions", "tcpdump failed - stdout: '{}', stderr: '{}'", stdout, stderr);
+                
+                if stderr.contains("permission") || stderr.contains("Operation not permitted") {
+                    let error_msg = "Network monitoring requires administrator privileges. Please allow network access in System Preferences → Security & Privacy → Privacy → Developer Tools or run with sudo.";
+                    crate::log_error!("macos_permissions", "{}", error_msg);
+                    return Err(error_msg.to_string());
+                } else {
+                    crate::log_warning!("macos_permissions", "tcpdump failed for unknown reason, but may not be permission-related");
+                }
+            } else {
+                crate::log_info!("macos_permissions", "✅ tcpdump permissions check passed");
+            }
+            Ok(())
+        },
+        Err(e) => {
+            let error_msg = format!("Failed to check network permissions: {}. Please install tcpdump or enable network monitoring permissions.", e);
+            crate::log_error!("macos_permissions", "{}", error_msg);
+            Err(error_msg)
+        }
     }
 }
 

@@ -78,12 +78,12 @@ pub fn update_track_time(current_time: u64) -> io::Result<()> {
     // Periodic backup (reduced frequency)
     if should_create_backup() {
         let file_name = format!("rs-fairsight({}).txt", current_date);
-        let count = get_current_backup_count();
+        let _count = get_current_backup_count();
         if let Err(e) = save_backup(&log_dir, &backup_dir, &file_name) {
             crate::log_error!("time_tracker", "Backup failed: {}", e);
-        } else {
-            crate::log_info!("time_tracker", "Backup created successfully (operation #{})", count);
-        }
+        }/*/ else {
+//            crate::log_info!("time_tracker", "Backup created successfully (operation #{})", count);
+        }*/
     }
 
     *last_tracked_inactive_time = current_time;
