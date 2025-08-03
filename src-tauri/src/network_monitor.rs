@@ -203,7 +203,14 @@ pub fn get_monitoring_adapters() -> Result<Vec<String>, String> {
                 "Other"
             }
         } else {
-            "Unknown"
+            // Handle macOS adapters that often lack descriptions but have specific names
+            if adapter.name.starts_with("en") && (adapter.name == "en0" || adapter.name == "en1") {
+                "Physical (macOS)"
+            } else if adapter.name.starts_with("utun") || adapter.name.starts_with("ipsec") {
+                "VPN/Tunnel (macOS)"
+            } else {
+                "Unknown"
+            }
         };
         
         println!("✅ Including adapter {} [{}] - {} addresses", 

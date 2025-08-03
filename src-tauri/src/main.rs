@@ -162,6 +162,30 @@ fn main() {
                 // Wait a moment for app to fully initialize
                 tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
                 
+                // Check network permissions on macOS first
+                #[cfg(target_os = "macos")]
+                {
+                    use std::process::Command;
+                    
+                    match Command::new("tcpdump").arg("-D").output() {
+                        Ok(output) => {
+                            if !output.status.success() {
+                                let stderr = String::from_utf8_lossy(&output.stderr);
+                                if stderr.contains("permission") || stderr.contains("Operation not permitted") {
+                                    println!("❌ Network monitoring requires administrator privileges on macOS");
+                                    println!("💡 Please allow network access in System Preferences → Security & Privacy → Privacy → Developer Tools");
+                                    println!("   Or run the application with elevated permissions");
+                                    return;
+                                }
+                            }
+                            println!("✅ Network permissions verified on macOS");
+                        },
+                        Err(e) => {
+                            println!("⚠️  Could not verify network permissions: {}. Continuing anyway...", e);
+                        }
+                    }
+                }
+                
                 match get_monitoring_adapters() {
                     Ok(adapters) => {
                         if !adapters.is_empty() {
