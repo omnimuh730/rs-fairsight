@@ -29,6 +29,53 @@ jobs:
       - name: Cache Rust
         uses: Swatinem/rust-cache@v2
 
+      - name: Install Windows dependencies
+        run: |
+          # Download and install Npcap SDK for development
+          echo "Installing Npcap SDK for Windows build..."
+          
+          try {
+            # Download Npcap SDK
+            $npcapSdkUrl = "https://npcap.com/dist/npcap-sdk-1.13.zip"
+            $npcapSdkZip = "$env:TEMP\npcap-sdk.zip"
+            $npcapSdkDir = "$env:TEMP\npcap-sdk"
+            
+            Write-Host "Downloading Npcap SDK..."
+            Invoke-WebRequest -Uri $npcapSdkUrl -OutFile $npcapSdkZip -TimeoutSec 30
+            
+            Write-Host "Extracting Npcap SDK..."
+            Expand-Archive -Path $npcapSdkZip -DestinationPath $npcapSdkDir -Force
+            
+            # Set up environment variables for the pcap crate
+            $libPath = "$npcapSdkDir\Lib\x64"
+            $includePath = "$npcapSdkDir\Include"
+            
+            # Add to environment for subsequent steps
+            echo "LIB=$libPath;$env:LIB" >> $env:GITHUB_ENV
+            echo "INCLUDE=$includePath;$env:INCLUDE" >> $env:GITHUB_ENV
+            echo "LIBPCAP_LIBDIR=$libPath" >> $env:GITHUB_ENV
+            echo "LIBPCAP_INCDIR=$includePath" >> $env:GITHUB_ENV
+            
+            Write-Host "Npcap SDK installed successfully"
+            Write-Host "Lib path: $libPath"
+            Write-Host "Include path: $includePath"
+          }
+          catch {
+            Write-Host "Failed to download Npcap SDK: $_"
+            Write-Host "Trying alternative approach with vcpkg..."
+            
+            # Try vcpkg as fallback
+            vcpkg install pcap:x64-windows
+            if ($?) {
+              Write-Host "Successfully installed pcap via vcpkg"
+              # vcpkg integrates automatically with Visual Studio/MSBuild
+            } else {
+              Write-Host "vcpkg installation also failed"
+              exit 1
+            }
+          }
+        shell: powershell
+
       - name: Install frontend dependencies
         run: npm ci
 
@@ -38,7 +85,17 @@ jobs:
       - name: Check Rust code
         run: cargo check
         working-directory: src-tauri
+        env:
+          LIBPCAP_LIBDIR: ${{ format('{0}\npcap-sdk\Lib\x64', runner.temp) }}
+          LIBPCAP_INCDIR: ${{ format('{0}\npcap-sdk\Include', runner.temp) }}
+          PCAP_LIBDIR: ${{ format('{0}\npcap-sdk\Lib\x64', runner.temp) }}
+          PCAP_INCDIR: ${{ format('{0}\npcap-sdk\Include', runner.temp) }}
 
       - name: Run Rust tests
         run: cargo test
         working-directory: src-tauri
+        env:
+          LIBPCAP_LIBDIR: ${{ format('{0}\npcap-sdk\Lib\x64', runner.temp) }}
+          LIBPCAP_INCDIR: ${{ format('{0}\npcap-sdk\Include', runner.temp) }}
+          PCAP_LIBDIR: ${{ format('{0}\npcap-sdk\Lib\x64', runner.temp) }}
+          PCAP_INCDIR: ${{ format('{0}\npcap-sdk\Include', runner.temp) }}
