@@ -7,7 +7,11 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "tauri:build": "tauri build",
+    "tauri:build:macos": "npm run build && tauri build && bash post-build-macos.sh",
+    "bundle:macos": "npm run tauri:build:macos",
+    "postbuild": "node scripts/post-build.js"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
