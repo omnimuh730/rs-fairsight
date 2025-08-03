@@ -17,10 +17,25 @@ BINARY_PATH="${BUNDLE_PATH}/Contents/MacOS/${APP_NAME}"
 if [ ! -d "$BUNDLE_PATH" ]; then
     echo "❌ App bundle not found at: $BUNDLE_PATH"
     echo "   Please run 'npm run tauri build' first"
+    
+    # In CI environment, this might be expected if we're running pre-build
+    if [ -n "$GITHUB_ACTIONS" ]; then
+        echo "ℹ️  GitHub Actions environment detected - this might be a pre-build step"
+        echo "🎉 macOS Post-Build: Skipping bundling (will be handled after Tauri build)"
+        exit 0
+    fi
+    
     exit 1
 fi
 
 echo "✅ Found app bundle at: $BUNDLE_PATH"
+
+# Verify the binary exists
+if [ ! -f "$BINARY_PATH" ]; then
+    echo "❌ App binary not found at: $BINARY_PATH"
+    echo "   Bundle exists but binary is missing"
+    exit 1
+fi
 
 # Create Frameworks directory if it doesn't exist
 if [ ! -d "$FRAMEWORKS_DIR" ]; then

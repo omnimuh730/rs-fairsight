@@ -86,16 +86,9 @@ jobs:
       - name: Install macOS dependencies
         if: matrix.platform == 'macos-latest'
         run: |
-          # Install libpcap development headers if needed
-          # macOS usually has libpcap built-in, but ensure development headers are available
-          echo "macOS libpcap should be available by default"
-          # If needed, you can install via homebrew:
-          # brew install libpcap
-
-      - name: Install macOS dependencies
-        if: matrix.platform == 'macos-latest'
-        run: |
-          # Install libpcap development headers and pkg-config
+          echo "🍎 Installing macOS dependencies for packet capture..."
+          
+          # Install libpcap and pkg-config
           brew install libpcap pkg-config
           
           # Verify libpcap installation
@@ -107,6 +100,10 @@ jobs:
           echo "PKG_CONFIG_PATH=$(brew --prefix libpcap)/lib/pkgconfig:$PKG_CONFIG_PATH" >> $GITHUB_ENV
           echo "LIBPCAP_LIBDIR=$(brew --prefix libpcap)/lib" >> $GITHUB_ENV
           echo "LIBPCAP_INCDIR=$(brew --prefix libpcap)/include" >> $GITHUB_ENV
+          
+          # Set additional paths for both Intel and Apple Silicon
+          echo "CPPFLAGS=-I/opt/homebrew/include" >> $GITHUB_ENV
+          echo "LDFLAGS=-L/opt/homebrew/lib" >> $GITHUB_ENV
 
       - name: Install app dependencies and build frontend
         run: npm ci && npm run build

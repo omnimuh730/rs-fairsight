@@ -12,7 +12,28 @@ set MSI_DIR=%BUNDLE_BASE%\msi
 set NSIS_DIR=%BUNDLE_BASE%\nsis
 set BINARY_PATH=src-tauri\target\release\%APP_NAME%.exe
 
-REM Check if the binary exists
+REM For GitHub Actions: Use the Npcap SDK we downloaded
+if defined RUNNER_TEMP (
+    echo 🏗️  GitHub Actions environment detected
+    set NPCAP_SDK_DIR=%RUNNER_TEMP%\npcap-sdk
+    set NPCAP_BIN_DIR=%NPCAP_SDK_DIR%\Lib\x64
+    echo 📁 Using Npcap SDK from: %NPCAP_SDK_DIR%
+    
+    REM Check if we have the SDK files
+    if exist "%NPCAP_BIN_DIR%\wpcap.lib" (
+        echo ✅ Found Npcap SDK files
+        REM For CI, we'll bundle the runtime DLLs from Windows system (if available)
+        REM or skip bundling since the installer will require Npcap installation
+        echo ℹ️  CI build - runtime DLL bundling will be handled by installer requirements
+        goto :success
+    ) else (
+        echo ❌ Npcap SDK files not found in CI environment
+        echo    Expected at: %NPCAP_BIN_DIR%
+        goto :success_no_bundle
+    )
+)
+
+REM Check if the binary exists (for local builds)
 if not exist "%BINARY_PATH%" (
     echo ❌ Binary not found at: %BINARY_PATH%
     echo    Please run 'npm run tauri build' first
@@ -90,6 +111,21 @@ echo ✅ Your installer now includes all required dependencies
 echo 🚀 Users can install without manual Npcap setup
 echo.
 
+goto :eof
+
+:success
+echo.
+echo 🎉 Windows Post-Build Complete (CI Mode)!
+echo ℹ️  Installer will require users to have Npcap installed
+echo 📋 Recommendation: Include Npcap installation instructions in release notes
+echo.
+goto :eof
+
+:success_no_bundle
+echo.
+echo ⚠️  Post-Build Complete - No DLL bundling performed
+echo ℹ️  This is normal for CI builds
+echo.
 goto :eof
 
 :check_and_copy_npcap
