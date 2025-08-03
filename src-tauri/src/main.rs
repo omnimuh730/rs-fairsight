@@ -129,25 +129,7 @@ fn main() {
         rt.block_on(start_web_server());
     });
 
-    // Auto-start network monitoring on application startup
-    std::thread::spawn(|| {
-        let rt = tokio::runtime::Runtime::new().unwrap();
-        rt.block_on(async {
-            // Wait a bit for the application to fully initialize
-            tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
-            
-            match get_default_network_adapter() {
-                Ok(adapter_name) => {
-                    let monitor = get_or_create_monitor(&adapter_name);
-                    match monitor.start_monitoring().await {
-                        Ok(_) => println!("🚀 Auto-started network monitoring on adapter: {}", adapter_name),
-                        Err(e) => eprintln!("❌ Failed to auto-start network monitoring: {}", e),
-                    }
-                }
-                Err(e) => eprintln!("⚠️  No suitable network adapter found for auto-start: {}", e),
-            }
-        });
-    });
+    // Note: Network monitoring auto-start moved to setup() function for comprehensive monitoring
 
     builder
         .plugin(
@@ -173,8 +155,8 @@ fn main() {
             }
             
             // Auto-start comprehensive network monitoring with packet deduplication
-            let app_handle = app.handle().clone();
-            tokio::spawn(async move {
+            let _app_handle = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
                 println!("🔍 Auto-starting comprehensive network monitoring...");
                 
                 // Wait a moment for app to fully initialize

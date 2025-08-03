@@ -7,7 +7,6 @@ use crate::network_monitor::{get_network_adapters, get_monitoring_adapters, Netw
 use crate::traffic_monitor::{get_or_create_monitor, MonitoringStats};
 use crate::network_storage::{NETWORK_STORAGE, DailyNetworkSummary};
 use crate::persistent_state::{get_persistent_state_manager, AdapterPersistentState};
-use std::collections::HashMap;
 
 #[tauri::command]
 pub fn greet(name: &str) -> String {
@@ -280,7 +279,7 @@ pub async fn is_network_monitoring(adapter_name: String) -> bool {
 }
 
 #[tauri::command]
-pub async fn is_comprehensive_monitoring_active() -> Result<serde_json::Value, String> {
+pub fn is_comprehensive_monitoring_active() -> Result<serde_json::Value, String> {
     let adapters = get_monitoring_adapters()?;
     let mut monitoring_status = std::collections::HashMap::new();
     let mut total_monitoring = 0;
