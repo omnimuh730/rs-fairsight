@@ -13,14 +13,14 @@ export default defineConfig(async () => ({
   clearScreen: false,
   // 2. tauri expects a fixed port, fail if that port is not available
   server: {
-    port: 1420,
-    strictPort: true,
-    host: host || false,
+    port: 3000,
+    strictPort: false, // Allow Vite to find an available port
+    host: "127.0.0.1", // Use IPv4 explicitly
     hmr: host
       ? {
           protocol: "ws",
           host,
-          port: 1421,
+          port: 3001,
         }
       : undefined,
     watch: {

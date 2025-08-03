@@ -38,6 +38,9 @@ use crate::commands::{greet, sync_time_data, aggregate_week_activity_logs, get_h
 use crate::ui_setup::{setup_tray_and_window_events, handle_window_event};
 use crate::health_monitor::initialize_health_monitoring;
 use crate::persistent_state::get_persistent_state_manager;
+
+// Global flag to prevent duplicate auto-start attempts
+static AUTO_START_COMPLETED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 use crate::system_verification::verify_system_requirements;
 
 #[cfg(target_os = "macos")]
@@ -164,6 +167,12 @@ fn main() {
             // Wait a bit for the application to fully initialize
             tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
             
+            // Prevent duplicate auto-start attempts
+            if AUTO_START_COMPLETED.swap(true, std::sync::atomic::Ordering::SeqCst) {
+                println!("ℹ️  Auto-start already completed, skipping duplicate attempt");
+                return;
+            }
+            
             // Check macOS network permissions before starting monitoring
             #[cfg(target_os = "macos")]
             {
@@ -202,8 +211,14 @@ fn main() {
                                 started_adapters.push(adapter_name);
                             }
                             Err(e) => {
-                                // Skip problematic adapters silently during auto-start
-                                failed_adapters.push(format!("{}:{}", adapter_name, e));
+                                // Handle "already running" errors more gracefully
+                                if e.contains("already running") {
+                                    println!("ℹ️  Adapter {} already monitoring", adapter_name);
+                                    started_adapters.push(adapter_name); // Count as started
+                                } else {
+                                    // Skip other problematic adapters silently during auto-start
+                                    failed_adapters.push(format!("{}:{}", adapter_name, e));
+                                }
                             }
                         }
                     }

@@ -8,6 +8,17 @@ use super::types::{MonitoringConfig, MonitoringStats, TrafficData, NetworkHost, 
 use super::packet_processing::{create_packet_capture, process_real_packet};
 use super::session_manager::{save_periodic_session, save_final_session};
 
+// Global startup coordination to prevent race conditions
+lazy_static::lazy_static! {
+    static ref STARTUP_LOCKS: dashmap::DashMap<String, Arc<tokio::sync::Mutex<bool>>> = dashmap::DashMap::new();
+}
+
+async fn get_startup_lock(adapter_name: &str) -> Arc<tokio::sync::Mutex<bool>> {
+    STARTUP_LOCKS.entry(adapter_name.to_string())
+        .or_insert_with(|| Arc::new(tokio::sync::Mutex::new(false)))
+        .clone()
+}
+
 pub struct TrafficMonitor {
     pub config: Arc<RwLock<MonitoringConfig>>,
     pub stats: Arc<RwLock<MonitoringStats>>,
@@ -73,18 +84,25 @@ impl TrafficMonitor {
     }
 
     pub async fn start_monitoring(&self) -> Result<(), String> {
+        let config = self.config.read().clone();
+        let adapter_name = config.adapter_name.clone();
+        
+        // Get startup lock for this adapter to prevent race conditions
+        let startup_lock = get_startup_lock(&adapter_name).await;
+        let _lock_guard = startup_lock.lock().await;
+        
+        // Double-check if monitoring is already running after acquiring lock
         let mut is_running = self.is_running.write();
         if *is_running {
-            return Err("Monitoring is already running".to_string());
+            // This is expected behavior, not an error - just return quietly
+            println!("ℹ️  Monitoring already active for '{}'", adapter_name);
+            return Ok(()); // Return Ok instead of error for "already running"
         }
         *is_running = true;
 
         // Record session start time
         let start_time = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
         *self.session_start_time.write() = Some(start_time);
-
-        let config = self.config.read().clone();
-        let adapter_name = config.adapter_name.clone();
 
         // Update persistent state to mark as monitoring
         if let Err(e) = get_persistent_state_manager().update_adapter_state(&adapter_name, |state| {
