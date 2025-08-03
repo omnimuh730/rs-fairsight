@@ -97,6 +97,9 @@ impl TrafficMonitor {
             eprintln!("⚠️  Failed to update persistent state on start: {}", e);
         }
 
+        // Notify health monitor that network monitoring is active
+        crate::health_monitor::set_network_monitoring_active(true);
+
         println!("🚀 Starting network monitoring for '{}'", adapter_name);
         
         // Clone necessary data for the monitoring task
@@ -135,6 +138,15 @@ impl TrafficMonitor {
         if let Some(start_time) = *self.session_start_time.read() {
             let current_stats = self.stats.read();
             save_final_session(&adapter_name, start_time, &current_stats);
+        }
+
+        // Check if any other adapters are still monitoring
+        let still_monitoring = TRAFFIC_MONITORS.iter()
+            .any(|entry| entry.key() != &adapter_name && entry.value().is_monitoring());
+
+        // Only update health monitor if no adapters are monitoring
+        if !still_monitoring {
+            crate::health_monitor::set_network_monitoring_active(false);
         }
 
         println!("🛑 Stopped monitoring '{}' - final session saved", adapter_name);
@@ -293,4 +305,8 @@ pub fn get_or_create_monitor(adapter_name: &str) -> Arc<TrafficMonitor> {
     TRAFFIC_MONITORS.entry(adapter_name.to_string())
         .or_insert_with(|| Arc::new(TrafficMonitor::new(adapter_name.to_string())))
         .clone()
+}
+
+pub fn is_comprehensive_monitoring_running() -> bool {
+    TRAFFIC_MONITORS.len() > 1 && TRAFFIC_MONITORS.iter().any(|entry| entry.value().is_monitoring())
 }

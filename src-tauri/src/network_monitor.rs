@@ -22,11 +22,14 @@ impl NetworkAdapter {
 }
 
 pub fn get_network_adapters() -> Result<Vec<NetworkAdapter>, String> {
+    crate::log_info!("network_adapter", "Attempting to list network devices...");
+    
     match pcap::Device::list() {
         Ok(devices) => {
+            crate::log_info!("network_adapter", "Successfully listed {} network devices", devices.len());
             let mut adapters = Vec::new();
             
-            for device in devices {
+            for (index, device) in devices.iter().enumerate() {
                 let addresses: Vec<String> = device.addresses
                     .iter()
                     .map(|addr| addr.addr.to_string())
@@ -35,9 +38,18 @@ pub fn get_network_adapters() -> Result<Vec<NetworkAdapter>, String> {
                 let is_loopback = device.flags.is_loopback();
                 let is_up = device.flags.is_up();
                 
-                let adapter = NetworkAdapter::new(
+                crate::log_info!("network_adapter", "Device {}: name='{}', desc={:?}, up={}, loopback={}, addresses={}", 
+                    index + 1,
                     device.name,
                     device.desc,
+                    is_up,
+                    is_loopback,
+                    addresses.len()
+                );
+                
+                let adapter = NetworkAdapter::new(
+                    device.name.clone(),
+                    device.desc.clone(),
                     addresses,
                     is_up,
                     is_loopback,
@@ -46,9 +58,14 @@ pub fn get_network_adapters() -> Result<Vec<NetworkAdapter>, String> {
                 adapters.push(adapter);
             }
             
+            crate::log_info!("network_adapter", "Created {} network adapter objects", adapters.len());
             Ok(adapters)
         }
-        Err(e) => Err(format!("Failed to list network devices: {}", e)),
+        Err(e) => {
+            let error_msg = format!("Failed to list network devices: {}", e);
+            crate::log_error!("network_adapter", "{}", error_msg);
+            Err(error_msg)
+        }
     }
 }
 
@@ -161,22 +178,34 @@ pub fn get_default_network_adapter() -> Result<String, String> {
 /// Returns ALL active, non-loopback adapters to capture complete network traffic
 /// No scoring - monitors everything to ensure no traffic is missed
 pub fn get_monitoring_adapters() -> Result<Vec<String>, String> {
+    crate::log_info!("adapter_selection", "Starting comprehensive adapter selection process...");
+    
     let adapters = get_network_adapters()?;
     
+    crate::log_info!("adapter_selection", "Found {} total adapters for evaluation", adapters.len());
     println!("🔍 Finding ALL active adapters for comprehensive monitoring from {} available", adapters.len());
     
     let mut suitable_adapters = Vec::new();
+    let mut skipped_adapters = Vec::new();
     
-    for adapter in &adapters {
+    for (index, adapter) in adapters.iter().enumerate() {
+        crate::log_info!("adapter_selection", "Evaluating adapter {}/{}: '{}'", index + 1, adapters.len(), adapter.name);
+        
         // Skip loopback adapters entirely (localhost traffic not needed)
         if adapter.is_loopback {
+            let skip_reason = "loopback adapter".to_string();
+            crate::log_info!("adapter_selection", "⏭️  Skipping '{}': {}", adapter.name, skip_reason);
             println!("⏭️  Skipping loopback adapter: {}", adapter.name);
+            skipped_adapters.push((adapter.name.clone(), skip_reason));
             continue;
         }
         
         // Skip inactive adapters (no traffic possible)
         if !adapter.is_up {
+            let skip_reason = "adapter is down/inactive".to_string();
+            crate::log_info!("adapter_selection", "⏭️  Skipping '{}': {}", adapter.name, skip_reason);
             println!("⏭️  Skipping inactive adapter: {}", adapter.name);
+            skipped_adapters.push((adapter.name.clone(), skip_reason));
             continue;
         }
         
@@ -213,6 +242,12 @@ pub fn get_monitoring_adapters() -> Result<Vec<String>, String> {
             }
         };
         
+        crate::log_info!("adapter_selection", "✅ Including adapter '{}' [{}] - {} addresses", 
+            adapter.name, 
+            adapter_type,
+            adapter.addresses.len()
+        );
+        
         println!("✅ Including adapter {} [{}] - {} addresses", 
             adapter.name, 
             adapter_type,
@@ -220,15 +255,28 @@ pub fn get_monitoring_adapters() -> Result<Vec<String>, String> {
         );
         
         if !adapter.addresses.is_empty() {
+            crate::log_info!("adapter_selection", "   📍 IP addresses for '{}': {:?}", adapter.name, adapter.addresses);
             println!("   📍 IP addresses: {:?}", adapter.addresses);
+        } else {
+            crate::log_warning!("adapter_selection", "   ⚠️  Adapter '{}' has no IP addresses assigned", adapter.name);
         }
         
         suitable_adapters.push(adapter.name.clone());
     }
     
-    if suitable_adapters.is_empty() {
-        return Err("No active network adapters found for monitoring. All adapters are either loopback or inactive.".to_string());
+    crate::log_info!("adapter_selection", "Adapter selection complete - {} suitable, {} skipped", suitable_adapters.len(), skipped_adapters.len());
+    
+    if !skipped_adapters.is_empty() {
+        crate::log_info!("adapter_selection", "Skipped adapters summary: {:?}", skipped_adapters);
     }
+    
+    if suitable_adapters.is_empty() {
+        let error_msg = "No active network adapters found for monitoring. All adapters are either loopback or inactive.".to_string();
+        crate::log_error!("adapter_selection", "{}", error_msg);
+        return Err(error_msg);
+    }
+    
+    crate::log_info!("adapter_selection", "Final selection: Will monitor {} adapters: {:?}", suitable_adapters.len(), suitable_adapters);
     
     println!("🎯 Will monitor ALL {} active adapters for comprehensive traffic capture:", suitable_adapters.len());
     for (i, adapter) in suitable_adapters.iter().enumerate() {

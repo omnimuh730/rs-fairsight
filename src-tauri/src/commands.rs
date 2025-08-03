@@ -1,5 +1,5 @@
 use crate::time_tracker::aggregate_log_results;
-use crate::health_monitor::HEALTH_MONITOR;
+use crate::health_monitor::{HEALTH_MONITOR, get_comprehensive_system_health, SystemHealthStatus};
 use crate::logger::{get_logs, get_recent_logs, clear_logs, LogEntry};
 use crate::network_monitor::{get_network_adapters, get_monitoring_adapters, NetworkAdapter};
 // use crate::network_engine::{get_network_engine, start_network_engine, stop_network_engine};
@@ -58,6 +58,11 @@ pub fn get_health_status() -> String {
             format!("Warning: No activity for {} seconds", seconds_since_activity)
         }
     }
+}
+
+#[tauri::command]
+pub fn get_comprehensive_health_status() -> SystemHealthStatus {
+    get_comprehensive_system_health()
 }
 
 #[tauri::command]
@@ -483,6 +488,8 @@ pub fn get_current_network_totals() -> Result<std::collections::HashMap<String, 
 async fn check_network_permissions() -> Result<(), String> {
     use std::process::Command;
     
+    crate::log_info!("macos_permissions", "Checking macOS network monitoring permissions via tcpdump...");
+    
     // Try to create a test pcap handle to check permissions
     // This will trigger the system permission dialog if needed
     match Command::new("tcpdump")
@@ -490,15 +497,31 @@ async fn check_network_permissions() -> Result<(), String> {
         .output()
     {
         Ok(output) => {
+            crate::log_info!("macos_permissions", "tcpdump command executed - status: {}", output.status);
+            
             if !output.status.success() {
                 let stderr = String::from_utf8_lossy(&output.stderr);
+                let stdout = String::from_utf8_lossy(&output.stdout);
+                
+                crate::log_warning!("macos_permissions", "tcpdump failed - stdout: '{}', stderr: '{}'", stdout, stderr);
+                
                 if stderr.contains("permission") || stderr.contains("Operation not permitted") {
-                    return Err("Network monitoring requires administrator privileges. Please allow network access in System Preferences → Security & Privacy → Privacy → Developer Tools or run with sudo.".to_string());
+                    let error_msg = "Network monitoring requires administrator privileges. Please allow network access in System Preferences → Security & Privacy → Privacy → Developer Tools or run with sudo.";
+                    crate::log_error!("macos_permissions", "{}", error_msg);
+                    return Err(error_msg.to_string());
+                } else {
+                    crate::log_warning!("macos_permissions", "tcpdump failed for unknown reason, but may not be permission-related");
                 }
+            } else {
+                crate::log_info!("macos_permissions", "✅ tcpdump permissions check passed");
             }
             Ok(())
         },
-        Err(e) => Err(format!("Failed to check network permissions: {}. Please install tcpdump or enable network monitoring permissions.", e))
+        Err(e) => {
+            let error_msg = format!("Failed to check network permissions: {}. Please install tcpdump or enable network monitoring permissions.", e);
+            crate::log_error!("macos_permissions", "{}", error_msg);
+            Err(error_msg)
+        }
     }
 }
 

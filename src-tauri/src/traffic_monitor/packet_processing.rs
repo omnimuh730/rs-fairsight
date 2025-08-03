@@ -12,10 +12,18 @@ use super::service_analysis::process_service_from_packet;
 use super::host_analysis::process_host_from_packet;
 
 pub fn create_packet_capture(adapter_name: &str) -> Option<Capture<pcap::Active>> {
+    crate::log_info!("packet_capture", "Attempting to create packet capture for adapter: '{}'", adapter_name);
+    
     if let Ok(devices) = Device::list() {
+        crate::log_info!("packet_capture", "Successfully listed {} devices for capture setup", devices.len());
+        
         if let Some(device) = devices.into_iter().find(|d| d.name == adapter_name) {
+            crate::log_info!("packet_capture", "Found target device '{}' - description: {:?}", adapter_name, device.desc);
+            
             match Capture::from_device(device) {
                 Ok(inactive) => {
+                    crate::log_info!("packet_capture", "Created inactive capture for '{}', configuring settings...", adapter_name);
+                    
                     match inactive
                         .promisc(true)
                         .buffer_size(8_000_000)  // Increase to 8MB buffer for better capture
@@ -24,24 +32,31 @@ pub fn create_packet_capture(adapter_name: &str) -> Option<Capture<pcap::Active>
                         .timeout(100)            // Shorter timeout for more responsive capture
                         .open() {
                         Ok(cap) => {
+                            // crate::log_info!("packet_capture", "✅ Successfully opened packet capture on '{}'", adapter_name);
                             println!("Successfully opened packet capture on {}", adapter_name);
                             return Some(cap);
                         }
                         Err(e) => {
+                            crate::log_error!("packet_capture", "❌ Failed to open capture on '{}': {}. Common causes: insufficient privileges, adapter in use, or driver issues", adapter_name, e);
                             eprintln!("Failed to open capture on {}: {}. Will retry later.", adapter_name, e);
                         }
                     }
                 }
                 Err(e) => {
+                    crate::log_error!("packet_capture", "❌ Failed to create capture from device '{}': {}. Device may be unavailable or unsupported", adapter_name, e);
                     eprintln!("Failed to create capture from device {}: {}. Will retry later.", adapter_name, e);
                 }
             }
         } else {
+            crate::log_error!("packet_capture", "❌ Device '{}' not found in available devices list. Device may have been removed or renamed", adapter_name);
             eprintln!("Device {} not found. Will retry later.", adapter_name);
         }
     } else {
+        crate::log_error!("packet_capture", "❌ Failed to list devices for capture setup. This may indicate insufficient privileges or pcap library issues");
         eprintln!("Failed to list devices. Will retry later.");
     }
+    
+    crate::log_warning!("packet_capture", "Packet capture creation failed for '{}' - returning None", adapter_name);
     None
 }
 
@@ -100,6 +115,9 @@ pub async fn process_real_packet(
 
         // Register this packet to prevent future duplicates
         register_packet(packet_signature, adapter_name.to_string());
+
+        // Report network activity to health monitor
+        crate::health_monitor::report_network_activity();
 
         let packet_size = packet.header.len as u64;
         let is_outgoing = is_outgoing_traffic(&src_ip);
