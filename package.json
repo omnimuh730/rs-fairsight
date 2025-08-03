@@ -6,14 +6,15 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "build:frontend": "vite build",
     "preview": "vite preview",
     "tauri": "tauri",
     "tauri:build": "tauri build",
-    "tauri:build:macos": "npm run build && tauri build && bash post-build-macos.sh",
-    "tauri:build:windows": "npm run build && tauri build && post-build-windows.bat",
+    "tauri:build:macos": "npm run build:frontend && tauri build && bash post-build-macos.sh",
+    "tauri:build:windows": "npm run build:frontend && tauri build && post-build-windows.bat",
     "bundle:macos": "npm run tauri:build:macos",
     "bundle:windows": "npm run tauri:build:windows",
-    "bundle": "npm run build && tauri build && npm run postbuild",
+    "bundle": "npm run build:frontend && tauri build && npm run postbuild",
     "postbuild": "node scripts/post-build.cjs"
   },
   "dependencies": {
