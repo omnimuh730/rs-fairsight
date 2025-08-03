@@ -8,17 +8,6 @@ use super::types::{MonitoringConfig, MonitoringStats, TrafficData, NetworkHost, 
 use super::packet_processing::{create_packet_capture, process_real_packet};
 use super::session_manager::{save_periodic_session, save_final_session};
 
-// Global startup coordination to prevent race conditions
-lazy_static::lazy_static! {
-    static ref STARTUP_LOCKS: dashmap::DashMap<String, Arc<tokio::sync::Mutex<bool>>> = dashmap::DashMap::new();
-}
-
-async fn get_startup_lock(adapter_name: &str) -> Arc<tokio::sync::Mutex<bool>> {
-    STARTUP_LOCKS.entry(adapter_name.to_string())
-        .or_insert_with(|| Arc::new(tokio::sync::Mutex::new(false)))
-        .clone()
-}
-
 pub struct TrafficMonitor {
     pub config: Arc<RwLock<MonitoringConfig>>,
     pub stats: Arc<RwLock<MonitoringStats>>,
@@ -84,25 +73,18 @@ impl TrafficMonitor {
     }
 
     pub async fn start_monitoring(&self) -> Result<(), String> {
-        let config = self.config.read().clone();
-        let adapter_name = config.adapter_name.clone();
-        
-        // Get startup lock for this adapter to prevent race conditions
-        let startup_lock = get_startup_lock(&adapter_name).await;
-        let _lock_guard = startup_lock.lock().await;
-        
-        // Double-check if monitoring is already running after acquiring lock
         let mut is_running = self.is_running.write();
         if *is_running {
-            // This is expected behavior, not an error - just return quietly
-            println!("ℹ️  Monitoring already active for '{}'", adapter_name);
-            return Ok(()); // Return Ok instead of error for "already running"
+            return Err("Monitoring is already running".to_string());
         }
         *is_running = true;
 
         // Record session start time
         let start_time = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
         *self.session_start_time.write() = Some(start_time);
+
+        let config = self.config.read().clone();
+        let adapter_name = config.adapter_name.clone();
 
         // Update persistent state to mark as monitoring
         if let Err(e) = get_persistent_state_manager().update_adapter_state(&adapter_name, |state| {
@@ -114,9 +96,6 @@ impl TrafficMonitor {
         }) {
             eprintln!("⚠️  Failed to update persistent state on start: {}", e);
         }
-
-        // Notify health monitor that network monitoring is active
-        crate::health_monitor::set_network_monitoring_active(true);
 
         println!("🚀 Starting network monitoring for '{}'", adapter_name);
         
@@ -156,15 +135,6 @@ impl TrafficMonitor {
         if let Some(start_time) = *self.session_start_time.read() {
             let current_stats = self.stats.read();
             save_final_session(&adapter_name, start_time, &current_stats);
-        }
-
-        // Check if any other adapters are still monitoring
-        let still_monitoring = TRAFFIC_MONITORS.iter()
-            .any(|entry| entry.key() != &adapter_name && entry.value().is_monitoring());
-
-        // Only update health monitor if no adapters are monitoring
-        if !still_monitoring {
-            crate::health_monitor::set_network_monitoring_active(false);
         }
 
         println!("🛑 Stopped monitoring '{}' - final session saved", adapter_name);
@@ -229,13 +199,24 @@ impl TrafficMonitor {
             println!("✅ Real packet capture active for {}", adapter_name);
             println!("🔍 Monitoring live network traffic with enhanced host analysis");
             
+            // Add packet counter for debugging
+            let mut packet_count = 0u64;
+            let mut last_count_report = std::time::Instant::now();
+            
             loop {
                 if !*is_running.read() {
+                    println!("🛑 Monitoring stopped for {} - captured {} packets total", adapter_name, packet_count);
                     break;
                 }
                 
                 tokio::select! {
                     _ = save_interval.tick() => {
+                        // Report packet count every save interval
+                        if last_count_report.elapsed() >= Duration::from_secs(30) {
+                            println!("📊 Adapter {}: captured {} packets in last 30s", adapter_name, packet_count);
+                            last_count_report = std::time::Instant::now();
+                        }
+                        
                         save_periodic_session(
                             &adapter_name, &stats, &start_time, &mut last_save_time,
                             &mut last_save_incoming_bytes, &mut last_save_outgoing_bytes,
@@ -252,6 +233,14 @@ impl TrafficMonitor {
                             
                             match capture.next_packet() {
                                 Ok(packet) => {
+                                    packet_count += 1;
+                                    
+                                    // Show first few packets for debugging
+                                    if packet_count <= 5 {
+                                        println!("📦 Captured packet #{} on {} (size: {} bytes)", 
+                                            packet_count, adapter_name, packet.data.len());
+                                    }
+                                    
                                     process_real_packet(
                                         packet, &hosts, &services, &traffic_history, 
                                         &stats, start_time, &adapter_name
@@ -264,7 +253,7 @@ impl TrafficMonitor {
                                     continue;
                                 }
                                 Err(e) => {
-                                    eprintln!("Packet capture error: {}. Will attempt to reconnect.", e);
+                                    eprintln!("❌ Packet capture error on {}: {}. Will attempt to reconnect.", adapter_name, e);
                                     return; // Exit packet capture loop
                                 }
                             }

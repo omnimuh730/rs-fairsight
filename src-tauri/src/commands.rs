@@ -627,19 +627,3 @@ pub async fn check_network_permissions_status() -> bool {
         true // Always allow on other platforms
     }
 }
-
-/// Verify system dependencies for deployment compatibility
-/// This helps ensure the app will work on machines without manual setup
-#[tauri::command]
-pub fn verify_system_dependencies() -> Vec<(String, String)> {
-    use crate::system_verification::verify_system_requirements;
-    
-    let results = verify_system_requirements();
-    
-    results.into_iter().map(|(name, result)| {
-        match result {
-            Ok(msg) => (name, format!("✅ {}", msg)),
-            Err(err) => (name, format!("❌ {}", err))
-        }
-    }).collect()
-}

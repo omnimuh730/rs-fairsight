@@ -17,11 +17,13 @@ fn main() {
             std::env::var("LIBPCAP_LIBDIR").unwrap_or_default(),
             std::env::var("PCAP_LIBDIR").unwrap_or_default(),
             std::env::var("NPCAP_SDK_LIB").unwrap_or_default(),
+            // User's installed Npcap SDK path (x64 priority)
+            "C:\\npcap-sdk\\Lib\\x64".to_string(),
+            "C:\\npcap-sdk\\Lib".to_string(),
             // Temporary directory for GitHub Actions (x64 priority)
             format!("{}\\npcap-sdk\\Lib\\x64", std::env::var("TEMP").unwrap_or_default()),
             // Local development paths (x64 priority)
             "C:\\Users\\Administrator\\Downloads\\npcap-sdk-1.15\\Lib\\x64".to_string(),
-            "C:\\npcap-sdk\\Lib\\x64".to_string(),
             // x64 system paths
             "C:\\Windows\\System32\\Npcap".to_string(),
             "C:\\Program Files\\Npcap".to_string(),
@@ -68,6 +70,21 @@ fn main() {
                     
                     println!("cargo:rustc-link-search=native={}", path);
                     println!("cargo:warning=Found npcap library at: {}", path);
+                    
+                    // Set include path for pcap headers
+                    let include_path = if path.contains("\\Lib\\x64") {
+                        path.replace("\\Lib\\x64", "\\Include")
+                    } else if path.contains("\\Lib") {
+                        path.replace("\\Lib", "\\Include")
+                    } else {
+                        format!("{}\\..\\Include", path)
+                    };
+                    
+                    if Path::new(&include_path).exists() {
+                        println!("cargo:rustc-env=PCAP_INCLUDE_DIR={}", include_path);
+                        println!("cargo:warning=Found npcap headers at: {}", include_path);
+                    }
+                    
                     lib_path_found = true;
                     break;
                 }
@@ -76,6 +93,10 @@ fn main() {
 
         // Look for wpcap.dll in runtime locations for bundling
         let dll_search_paths = [
+            // User's Npcap SDK installation (may contain runtime DLLs)
+            "C:\\npcap-sdk\\Lib\\x64\\wpcap.dll",
+            "C:\\npcap-sdk\\Lib\\wpcap.dll",
+            // System installed Npcap runtime
             "C:\\Windows\\System32\\Npcap\\wpcap.dll",
             "C:\\Windows\\SysWOW64\\Npcap\\wpcap.dll", 
             "C:\\Program Files\\Npcap\\wpcap.dll",
