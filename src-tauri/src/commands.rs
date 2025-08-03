@@ -294,24 +294,12 @@ pub fn get_current_network_totals() -> Result<std::collections::HashMap<String, 
 // macOS Network Permission Functions
 #[cfg(target_os = "macos")]
 async fn check_network_permissions() -> Result<(), String> {
-    use std::process::Command;
+    use crate::macos_utils::check_bpf_permissions;
     
-    // Try to create a test pcap handle to check permissions
-    // This will trigger the system permission dialog if needed
-    match Command::new("tcpdump")
-        .arg("-D")
-        .output()
-    {
-        Ok(output) => {
-            if !output.status.success() {
-                let stderr = String::from_utf8_lossy(&output.stderr);
-                if stderr.contains("permission") || stderr.contains("Operation not permitted") {
-                    return Err("Network monitoring requires administrator privileges. Please allow network access in System Preferences → Security & Privacy → Privacy → Developer Tools or run with sudo.".to_string());
-                }
-            }
-            Ok(())
-        },
-        Err(e) => Err(format!("Failed to check network permissions: {}. Please install tcpdump or enable network monitoring permissions.", e))
+    // Use the enhanced macOS permission checking
+    match check_bpf_permissions() {
+        Ok(_) => Ok(()),
+        Err(e) => Err(format!("Network monitoring requires elevated privileges. {}", e))
     }
 }
 
@@ -319,18 +307,19 @@ async fn check_network_permissions() -> Result<(), String> {
 pub async fn request_network_permissions() -> Result<String, String> {
     #[cfg(target_os = "macos")]
     {
-        match check_network_permissions().await {
+        use crate::macos_utils::{check_bpf_permissions, request_network_permissions, get_permission_instructions};
+        
+        match check_bpf_permissions() {
             Ok(_) => Ok("Network permissions are already granted.".to_string()),
-            Err(e) => {
-                // Try to open System Preferences to the relevant section
-                if let Err(open_err) = std::process::Command::new("open")
-                    .arg("x-apple.systempreferences:com.apple.preference.security?Privacy_DeveloperTools")
-                    .spawn()
-                {
-                    println!("Failed to open System Preferences: {}", open_err);
+            Err(_) => {
+                // Try to open System Preferences automatically
+                match request_network_permissions() {
+                    Ok(_) => Ok("Please grant network permissions in System Preferences, then restart the application.".to_string()),
+                    Err(_) => {
+                        // Fallback to manual instructions
+                        Ok(get_permission_instructions())
+                    }
                 }
-                
-                Err(format!("Please grant network monitoring permissions. {}", e))
             }
         }
     }

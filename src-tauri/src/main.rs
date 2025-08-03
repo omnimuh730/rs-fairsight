@@ -136,6 +136,24 @@ fn main() {
             // Wait a bit for the application to fully initialize
             tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
             
+            // Check macOS network permissions before starting monitoring
+            #[cfg(target_os = "macos")]
+            {
+                use crate::macos_utils::{check_bpf_permissions, get_permission_instructions};
+                
+                println!("🔐 Checking macOS network permissions...");
+                match check_bpf_permissions() {
+                    Ok(_) => {
+                        println!("✅ macOS network permissions verified");
+                    }
+                    Err(e) => {
+                        println!("❌ macOS network permission error: {}", e);
+                        println!("{}", get_permission_instructions());
+                        println!("🔄 Network monitoring will continue in simulation mode until permissions are granted");
+                    }
+                }
+            }
+            
             match get_default_network_adapter() {
                 Ok(adapter_name) => {
                     let monitor = get_or_create_monitor(&adapter_name);

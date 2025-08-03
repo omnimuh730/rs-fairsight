@@ -28,7 +28,30 @@ pub fn create_packet_capture(adapter_name: &str) -> Option<Capture<pcap::Active>
                             return Some(cap);
                         }
                         Err(e) => {
-                            eprintln!("Failed to open capture on {}: {}. Will retry later.", adapter_name, e);
+                            let error_msg = format!("{}", e);
+                            
+                            // Handle macOS-specific BPF permission errors
+                            #[cfg(target_os = "macos")]
+                            {
+                                if error_msg.contains("Permission denied") || error_msg.contains("cannot open BPF device") {
+                                    eprintln!("❌ macOS BPF Permission Error on {}: {}", adapter_name, e);
+                                    eprintln!("💡 To capture real traffic, run with admin privileges or check adapter permissions");
+                                    eprintln!("   Solutions:");
+                                    eprintln!("   1. Grant Developer Tools permission in System Preferences → Security & Privacy → Privacy");
+                                    eprintln!("   2. Run with sudo: sudo ./InnoMonitor");
+                                    eprintln!("   3. Fix BPF permissions: sudo chmod +r /dev/bpf*");
+                                    
+                                    // Log specific macOS guidance
+                                    println!("🔄 Retrying packet capture every 5 seconds...");
+                                } else {
+                                    eprintln!("Failed to open capture on {}: {}. Will retry later.", adapter_name, e);
+                                }
+                            }
+                            
+                            #[cfg(not(target_os = "macos"))]
+                            {
+                                eprintln!("Failed to open capture on {}: {}. Will retry later.", adapter_name, e);
+                            }
                         }
                     }
                 }
