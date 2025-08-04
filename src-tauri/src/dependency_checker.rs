@@ -18,9 +18,12 @@ pub fn check_runtime_dependencies() -> Result<Value, String> {
     let libpcap_search_paths = [
         // Standardized InnoMonitor dependency location (highest priority)
         "/usr/local/lib/innomonitor/libpcap.dylib",
-        // Homebrew paths (Apple Silicon)
+        // Homebrew keg-only locations (Apple Silicon)
+        "/opt/homebrew/opt/libpcap/lib/libpcap.dylib",
+        // Homebrew keg-only locations (Intel)
+        "/usr/local/opt/libpcap/lib/libpcap.dylib",
+        // Standard Homebrew paths (fallback)
         "/opt/homebrew/lib/libpcap.dylib",
-        // Homebrew paths (Intel)
         "/usr/local/lib/libpcap.dylib",
         // System paths
         "/usr/lib/libpcap.dylib",

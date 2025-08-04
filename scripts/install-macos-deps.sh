@@ -77,10 +77,15 @@ create_standardized_links() {
     
     # Get Homebrew prefix (different for Intel vs Apple Silicon)
     BREW_PREFIX=$(brew --prefix)
-    LIBPCAP_LIB="$BREW_PREFIX/lib"
-    LIBPCAP_INCLUDE="$BREW_PREFIX/include"
+    
+    # libpcap is keg-only, so it's in its own directory
+    LIBPCAP_PREFIX=$(brew --prefix libpcap)
+    LIBPCAP_LIB="$LIBPCAP_PREFIX/lib"
+    LIBPCAP_INCLUDE="$LIBPCAP_PREFIX/include"
     
     log_message "📁 Homebrew prefix: $BREW_PREFIX"
+    log_message "📁 libpcap prefix: $LIBPCAP_PREFIX"
+    log_message "📁 libpcap lib directory: $LIBPCAP_LIB"
     
     # Create symlinks to the standardized location
     if [[ -f "$LIBPCAP_LIB/libpcap.dylib" ]]; then
@@ -88,6 +93,8 @@ create_standardized_links() {
         log_message "✅ Created symlink: $DEPS_DIR/libpcap.dylib -> $LIBPCAP_LIB/libpcap.dylib"
     else
         log_message "❌ libpcap.dylib not found at $LIBPCAP_LIB"
+        log_message "   Searching for libpcap files..."
+        find "$LIBPCAP_PREFIX" -name "*.dylib" -type f 2>/dev/null || log_message "   No .dylib files found"
         exit 1
     fi
     
@@ -106,12 +113,28 @@ create_standardized_links() {
     "installed_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
     "libpcap_version": "$(pkg-config --modversion libpcap 2>/dev/null || echo 'unknown')",
     "homebrew_prefix": "$BREW_PREFIX",
+    "libpcap_prefix": "$LIBPCAP_PREFIX",
     "libpcap_path": "$LIBPCAP_LIB/libpcap.dylib",
     "installer_version": "1.0.0"
 }
 EOF
     
     log_message "✅ Created dependency info file: $DEPS_DIR/dependency-info.json"
+    
+    # Set PKG_CONFIG_PATH for the app to find libpcap
+    log_message "🔧 Setting up pkg-config environment..."
+    
+    # Create a shell script that sets up the environment
+    cat > "$DEPS_DIR/setup-env.sh" << EOF
+#!/bin/bash
+# InnoMonitor environment setup
+export PKG_CONFIG_PATH="$LIBPCAP_PREFIX/lib/pkgconfig:\$PKG_CONFIG_PATH"
+export LIBPCAP_LIBDIR="$LIBPCAP_LIB"
+export LIBPCAP_INCDIR="$LIBPCAP_INCLUDE"
+EOF
+    
+    chmod +x "$DEPS_DIR/setup-env.sh"
+    log_message "✅ Created environment setup script: $DEPS_DIR/setup-env.sh"
 }
 
 # Verify installation
@@ -128,13 +151,18 @@ verify_installation() {
             log_message "⚠️  Warning: Library structure check failed"
         fi
         
-        # Test pkg-config
+        # Test pkg-config with the keg-only path
+        LIBPCAP_PREFIX=$(brew --prefix libpcap)
+        export PKG_CONFIG_PATH="$LIBPCAP_PREFIX/lib/pkgconfig:$PKG_CONFIG_PATH"
+        
         if pkg-config --exists libpcap; then
             log_message "✅ pkg-config can find libpcap"
             log_message "   Version: $(pkg-config --modversion libpcap)"
             log_message "   Libs: $(pkg-config --libs libpcap)"
+            log_message "   Cflags: $(pkg-config --cflags libpcap)"
         else
             log_message "⚠️  Warning: pkg-config cannot find libpcap"
+            log_message "   PKG_CONFIG_PATH: $PKG_CONFIG_PATH"
         fi
         
     else
@@ -159,6 +187,10 @@ main() {
     echo "📋 Installation log: $INSTALL_LOG"
     echo ""
     echo "✅ You can now run InnoMonitor - it will automatically find the dependencies."
+    echo ""
+    echo "🔧 Environment Variables (for development):"
+    echo "   export PKG_CONFIG_PATH=\"$(brew --prefix libpcap)/lib/pkgconfig:\$PKG_CONFIG_PATH\""
+    echo "   export LIBPCAP_LIBDIR=\"$(brew --prefix libpcap)/lib\""
     echo ""
     echo "🔧 To uninstall dependencies later, run:"
     echo "   sudo rm -rf $DEPS_DIR"
