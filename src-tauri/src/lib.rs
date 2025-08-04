@@ -18,6 +18,9 @@ pub mod persistent_state;
 #[cfg(target_os = "macos")]
 pub mod macos_utils;
 
+#[cfg(target_os = "macos")]
+pub mod dependency_checker;
+
 pub fn run() {
     println!("Running rust_fairsight_lib..."); // Non-Tauri background task
 }

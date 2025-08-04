@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "tauri": "tauri",
     "tauri:build": "tauri build",
-    "tauri:build:macos": "npm run build:frontend && tauri build && bash post-build-macos.sh",
+    "tauri:build:macos": "npm run build:frontend && tauri build && bash post-build-macos-simple.sh",
+    "tauri:build:macos:bundled": "npm run build:frontend && tauri build && bash post-build-macos.sh",
     "tauri:build:windows": "npm run build:frontend && pre-build-windows.bat && tauri build && post-build-windows.bat"
   },
   "dependencies": {

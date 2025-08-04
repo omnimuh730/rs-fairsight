@@ -206,11 +206,10 @@ fn main() {
         println!("cargo:rustc-link-lib=iphlpapi");
     }
 
-    // Handle macOS-specific libpcap configuration with bundling support
+    // Handle macOS-specific libpcap configuration - NO bundling approach
     #[cfg(target_os = "macos")]
     {
         use std::path::Path;
-        use std::fs;
         
         println!("cargo:rerun-if-env-changed=LIBPCAP_LIBDIR");
         println!("cargo:rerun-if-env-changed=PKG_CONFIG_PATH");
@@ -224,73 +223,42 @@ fn main() {
             println!("cargo:rustc-env=PKG_CONFIG_PATH={}", pkg_config_path);
         }
         
-        // Find libpcap and prepare for bundling
+        // Define search paths for libpcap at runtime (no bundling)
         let libpcap_search_paths = [
+            // Standardized InnoMonitor dependency location (preferred)
+            "/usr/local/lib/innomonitor/libpcap.dylib",
             // Homebrew paths (Apple Silicon)
             "/opt/homebrew/lib/libpcap.dylib",
-            "/opt/homebrew/Cellar/libpcap/1.10.5/lib/libpcap.1.10.5.dylib",
-            "/opt/homebrew/Cellar/libpcap/1.10.4/lib/libpcap.1.10.4.dylib",
             // Homebrew paths (Intel)
             "/usr/local/lib/libpcap.dylib", 
-            "/usr/local/Cellar/libpcap/1.10.5/lib/libpcap.1.10.5.dylib",
-            "/usr/local/Cellar/libpcap/1.10.4/lib/libpcap.1.10.4.dylib",
             // System paths
             "/usr/lib/libpcap.dylib",
-            "/System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/libpcap.dylib"
         ];
         
-        let mut libpcap_source_path = None;
-        let mut libpcap_lib_dir = None;
+        let mut libpcap_found = false;
         
-        // Find the best available libpcap
+        // Find any available libpcap for build-time linking
         for path in &libpcap_search_paths {
             if Path::new(path).exists() {
-                libpcap_source_path = Some(path.to_string());
-                libpcap_lib_dir = Some(Path::new(path).parent().unwrap().to_string_lossy().to_string());
-                println!("cargo:warning=Found libpcap at: {}", path);
+                let lib_dir = Path::new(path).parent().unwrap().to_string_lossy();
+                println!("cargo:rustc-link-search=native={}", lib_dir);
+                println!("cargo:warning=Found libpcap for build at: {}", path);
+                libpcap_found = true;
                 break;
             }
         }
         
-        match (libpcap_source_path, libpcap_lib_dir) {
-            (Some(source_path), Some(lib_dir)) => {
-                // Add the library directory to the link search path
-                println!("cargo:rustc-link-search=native={}", lib_dir);
-                println!("cargo:rustc-link-lib=pcap");
-                
-                // Prepare for app bundle copying (only during release builds)
-                if let Ok(profile) = env::var("PROFILE") {
-                    if profile == "release" {
-                        // Copy libpcap to a temporary location that we can reference later
-                        let out_dir = env::var("OUT_DIR").unwrap();
-                        let temp_libpcap_dir = format!("{}/libpcap_bundle", out_dir);
-                        
-                        if let Err(e) = fs::create_dir_all(&temp_libpcap_dir) {
-                            println!("cargo:warning=Failed to create temp libpcap directory: {}", e);
-                        } else {
-                            let dest_path = format!("{}/libpcap.dylib", temp_libpcap_dir);
-                            if let Err(e) = fs::copy(&source_path, &dest_path) {
-                                println!("cargo:warning=Failed to copy libpcap for bundling: {}", e);
-                            } else {
-                                println!("cargo:warning=Prepared libpcap for app bundle: {} -> {}", source_path, dest_path);
-                                // Store the paths for post-build processing
-                                println!("cargo:rustc-env=LIBPCAP_SOURCE_PATH={}", source_path);
-                                println!("cargo:rustc-env=LIBPCAP_BUNDLE_PATH={}", dest_path);
-                            }
-                        }
-                    }
-                }
+        if !libpcap_found {
+            println!("cargo:warning=No libpcap found during build - app will look for it at runtime");
+            println!("cargo:warning=Expected runtime locations:");
+            for path in &libpcap_search_paths {
+                println!("cargo:warning=  {}", path);
             }
-            (None, None) => {
-                println!("cargo:warning=libpcap not found in any standard location!");
-                println!("cargo:warning=Please install libpcap: brew install libpcap");
-                println!("cargo:warning=Or set LIBPCAP_LIBDIR environment variable");
-                
-                // Try to continue with system linking
-                println!("cargo:rustc-link-lib=pcap");
-            }
-            _ => unreachable!()
+            println!("cargo:warning=Run install-macos-deps.sh to install dependencies");
         }
+        
+        // Always try to link against pcap
+        println!("cargo:rustc-link-lib=pcap");
         
         // Additional macOS framework dependencies for network monitoring
         println!("cargo:rustc-link-lib=framework=CoreFoundation");
