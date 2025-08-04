@@ -1,16 +1,6 @@
-export const getDatesInRange = (startDate, endDate) => {
-	let currentDate = new Date(startDate);
-	currentDate.setHours(0, 0, 0, 0); // Normalize start date
-	const end = new Date(endDate);
-	end.setHours(0, 0, 0, 0); // Normalize end date
-	let dates = [];
-	while (currentDate <= end) {
-		const formattedDate = currentDate.toISOString().split('T')[0];
-		dates.push(formattedDate);
-		currentDate.setDate(currentDate.getDate() + 1);
-	}
-	return dates;
-};
+import { getDatesInRange as getLocalDatesInRange, toLocalDateString } from '../../../utils/dateUtils.js';
+
+export const getDatesInRange = getLocalDatesInRange;
 
 export const parseLog = (log) => {
 	// Handle potential null/undefined log input gracefully

@@ -1,6 +1,7 @@
 /**
  * Data processing utilities for network activity data
  */
+import { getLocalDateString } from '../../../utils/dateUtils.js';
 
 /**
  * Enhance session data with persistent state information to show real traffic totals
@@ -34,7 +35,8 @@ export const enhanceDataWithPersistentState = (sessionData, persistentState) => 
 	}
 
 	const adapters = persistentState.persistent_state.persistent_state;
-	const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
+
+	const today = getLocalDateString(); // YYYY-MM-DD format in local timezone
 	
 	// Calculate current cumulative totals from all adapters
 	let currentCumulativeIncoming = 0;

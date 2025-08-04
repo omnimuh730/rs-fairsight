@@ -1,6 +1,6 @@
 use std::fs;
 use std::path::PathBuf;
-use chrono::{NaiveDate, Utc, TimeZone};
+use chrono::{NaiveDate, Local, TimeZone};
 use super::types::DailyNetworkSummary;
 
 pub fn load_daily_summary(storage_dir: &PathBuf, date: &str) -> Result<DailyNetworkSummary, String> {
@@ -81,7 +81,7 @@ pub fn get_date_range_data(storage_dir: &PathBuf, start_date: &str, end_date: &s
 }
 
 pub fn cleanup_old_data(storage_dir: &PathBuf, days_to_keep: u32) -> Result<(), String> {
-    let cutoff_date = Utc::now()
+    let cutoff_date = chrono::Local::now()
         .checked_sub_signed(chrono::Duration::days(days_to_keep as i64))
         .ok_or("Date calculation overflow")?;
     
@@ -97,7 +97,7 @@ pub fn cleanup_old_data(storage_dir: &PathBuf, days_to_keep: u32) -> Result<(), 
             // Extract date from filename: network-YYYY-MM-DD.json
             if let Some(date_part) = file_name_str.strip_prefix("network-").and_then(|s| s.strip_suffix(".json")) {
                 if let Ok(file_date) = NaiveDate::parse_from_str(date_part, "%Y-%m-%d") {
-                    let file_datetime = Utc.from_utc_datetime(&file_date.and_hms_opt(0, 0, 0).unwrap());
+                    let file_datetime = chrono::TimeZone::from_local_datetime(&chrono::Local, &file_date.and_hms_opt(0, 0, 0).unwrap()).unwrap();
                     
                     if file_datetime < cutoff_date {
                         if let Err(e) = fs::remove_file(entry.path()) {

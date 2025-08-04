@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { calculateTotalStats, enhanceDataWithPersistentState } from '../utils/dataProcessing';
+import { getLocalDateString } from '../../../utils/dateUtils.js';
 
 /**
  * Custom hook for managing weekly network activity data
@@ -53,7 +54,7 @@ export const useWeeklyNetworkData = (initialStartDate, initialEndDate) => {
 			// If no session data but we have current totals, create a synthetic today entry
 			let dataToProcess = sessionData;
 			if ((!sessionData || sessionData.length === 0) && currentTotals && currentTotals.today_sessions) {
-				const today = new Date().toISOString().split('T')[0];
+				const today = getLocalDateString();
 				console.log('⚠️ No session data found, creating synthetic entry for today:', today);
 				dataToProcess = [currentTotals.today_sessions];
 			}

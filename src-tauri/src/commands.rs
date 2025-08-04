@@ -378,9 +378,9 @@ pub fn get_network_history(start_date: String, end_date: String) -> Result<Vec<D
             println!("📊 Network history requested: {} to {}", start_date, end_date);
             
             // Also try to get today's data if not already included
-            let today = chrono::Utc::now().format("%Y-%m-%d").to_string();
-            let tomorrow = chrono::Utc::now().checked_add_signed(chrono::Duration::days(1))
-                .unwrap_or_else(|| chrono::Utc::now())
+            let today = chrono::Local::now().format("%Y-%m-%d").to_string();
+            let tomorrow = chrono::Local::now().checked_add_signed(chrono::Duration::days(1))
+                .unwrap_or_else(|| chrono::Local::now())
                 .format("%Y-%m-%d").to_string();
             
             // Check if we need to add today's or tomorrow's data (timezone handling)
@@ -414,7 +414,7 @@ pub fn get_network_history(start_date: String, end_date: String) -> Result<Vec<D
                     // Check if this adapter had activity on this date
                     if let Some(first_time) = state.first_recorded_time {
                         let summary_timestamp = chrono::NaiveDate::parse_from_str(&summary.date, "%Y-%m-%d")
-                            .map(|d| d.and_hms_opt(0, 0, 0).unwrap().and_utc().timestamp() as u64)
+                            .map(|d| chrono::TimeZone::from_local_datetime(&chrono::Local, &d.and_hms_opt(0, 0, 0).unwrap()).unwrap().timestamp() as u64)
                             .unwrap_or(0);
                         
                         if first_time <= summary_timestamp + 86400 { // If adapter was active by end of this day
@@ -495,7 +495,7 @@ pub fn get_current_network_totals() -> Result<std::collections::HashMap<String, 
     let persistent_states = get_persistent_state_manager().get_all_adapter_states()?;
     
     // Get today's session data
-    let today = chrono::Utc::now().format("%Y-%m-%d").to_string();
+    let today = chrono::Local::now().format("%Y-%m-%d").to_string();
     let today_sessions = NETWORK_STORAGE.load_daily_summary(&today).unwrap_or_else(|_| {
         crate::network_storage::DailyNetworkSummary {
             date: today.clone(),
