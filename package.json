@@ -11,11 +11,7 @@
     "tauri": "tauri",
     "tauri:build": "tauri build",
     "tauri:build:macos": "npm run build:frontend && tauri build && bash post-build-macos.sh",
-    "tauri:build:windows": "npm run build:frontend && tauri build && post-build-windows.bat",
-    "bundle:macos": "npm run tauri:build:macos",
-    "bundle:windows": "npm run tauri:build:windows",
-    "bundle": "npm run build:frontend && tauri build && npm run postbuild",
-    "postbuild": "node scripts/post-build.cjs"
+    "tauri:build:windows": "npm run build:frontend && pre-build-windows.bat && tauri build && post-build-windows.bat"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",

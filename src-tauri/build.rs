@@ -10,9 +10,13 @@ fn main() {
         println!("cargo:rerun-if-env-changed=LIBPCAP_LIBDIR");
         println!("cargo:rerun-if-env-changed=PCAP_LIBDIR");
         println!("cargo:rerun-if-env-changed=NPCAP_SDK_LIB");
+        println!("cargo:rerun-if-changed=npcap-sdk/Lib/x64");
         
-        // Try to find npcap-sdk in various locations, prioritizing environment variables and x64 paths
+        // Try to find npcap-sdk in various locations, prioritizing bundled SDK
         let possible_paths = [
+            // Bundled Npcap SDK (highest priority)
+            "npcap-sdk/Lib/x64".to_string(),
+            "npcap-sdk/Lib".to_string(),
             // GitHub Actions / CI environment variables (x64 priority)
             std::env::var("LIBPCAP_LIBDIR").unwrap_or_default(),
             std::env::var("PCAP_LIBDIR").unwrap_or_default(),

@@ -6,17 +6,24 @@ REM This ensures the installer includes all dependencies
 echo 🪟 Windows Post-Build: Bundling Npcap with installer...
 
 REM Configuration
-set APP_NAME=InnoMonitor
-set BUNDLE_BASE=src-tauri\target\release\bundle
-set MSI_DIR=%BUNDLE_BASE%\msi
-set NSIS_DIR=%BUNDLE_BASE%\nsis
-set BINARY_PATH=src-tauri\target\release\%APP_NAME%.exe
+set "APP_NAME=InnoMonitor"
+set "BUNDLE_BASE=src-tauri\target\release\bundle"
+set "MSI_DIR=%BUNDLE_BASE%\msi"
+set "NSIS_DIR=%BUNDLE_BASE%\nsis"
+set "BINARY_PATH=src-tauri\target\release\%APP_NAME%.exe"
+
+REM Create libs directory in src-tauri for Tauri to pick up
+set "LIBS_DIR=src-tauri\libs"
+if not exist "%LIBS_DIR%" (
+    echo 📁 Creating libs directory for Tauri resources...
+    mkdir "%LIBS_DIR%"
+)
 
 REM For GitHub Actions: Use the Npcap SDK we downloaded
 if defined RUNNER_TEMP (
     echo 🏗️  GitHub Actions environment detected
-    set NPCAP_SDK_DIR=%RUNNER_TEMP%\npcap-sdk
-    set NPCAP_BIN_DIR=%NPCAP_SDK_DIR%\Lib\x64
+    set "NPCAP_SDK_DIR=%RUNNER_TEMP%\npcap-sdk"
+    set "NPCAP_BIN_DIR=%NPCAP_SDK_DIR%\Lib\x64"
     echo 📁 Using Npcap SDK from: %NPCAP_SDK_DIR%
     
     REM Check if we have the SDK files
@@ -42,8 +49,8 @@ if not exist "%BINARY_PATH%" (
 
 echo ✅ Found binary at: %BINARY_PATH%
 
-REM Create runtime libs directory next to the binary
-set RUNTIME_LIBS_DIR=src-tauri\target\release\libs
+REM Create runtime libs directory next to the binary for backward compatibility
+set "RUNTIME_LIBS_DIR=src-tauri\target\release\libs"
 if not exist "%RUNTIME_LIBS_DIR%" (
     echo 📁 Creating runtime libs directory...
     mkdir "%RUNTIME_LIBS_DIR%"
@@ -52,27 +59,22 @@ if not exist "%RUNTIME_LIBS_DIR%" (
 REM Find and copy Npcap DLLs
 set FOUND_WPCAP=0
 set FOUND_PACKET=0
-set NPCAP_SOURCE_DIR=
+set "NPCAP_SOURCE_DIR="
 
 REM Check common Npcap installation paths
-set PATHS[0]=C:\Windows\System32\Npcap
-set PATHS[1]=C:\Windows\SysWOW64\Npcap
-set PATHS[2]=C:\Program Files\Npcap
-set PATHS[3]=C:\Program Files (x86)\Npcap
-
-for /L %%i in (0,1,3) do (
-    call set "NPCAP_PATH=%%PATHS[%%i]%%"
-    call :check_and_copy_npcap "!NPCAP_PATH!"
-)
+call :check_and_copy_npcap "C:\Windows\System32\Npcap"
+call :check_and_copy_npcap "C:\Windows\SysWOW64\Npcap"
+call :check_and_copy_npcap "C:\Program Files\Npcap"
+call :check_and_copy_npcap "C:\Program Files (x86)\Npcap"
 
 if %FOUND_WPCAP%==0 (
     echo ❌ wpcap.dll not found in any standard Npcap location!
     echo    Please install Npcap from: https://npcap.com/
     echo    Standard locations checked:
-    for /L %%i in (0,1,3) do (
-        call set "NPCAP_PATH=%%PATHS[%%i]%%"
-        echo      - !NPCAP_PATH!
-    )
+    echo      - C:\Windows\System32\Npcap
+    echo      - C:\Windows\SysWOW64\Npcap
+    echo      - C:\Program Files\Npcap
+    echo      - C:\Program Files (x86)\Npcap
     exit /b 1
 )
 
@@ -132,11 +134,13 @@ goto :eof
 set "NPCAP_PATH=%~1"
 if exist "%NPCAP_PATH%\wpcap.dll" (
     echo ✅ Found wpcap.dll at: %NPCAP_PATH%
+    REM Copy to both locations: libs dir for Tauri resources and runtime libs for backward compatibility
+    copy "%NPCAP_PATH%\wpcap.dll" "%LIBS_DIR%\" >nul 2>&1
     copy "%NPCAP_PATH%\wpcap.dll" "%RUNTIME_LIBS_DIR%\" >nul 2>&1
     if !errorlevel!==0 (
-        echo 📦 Copied wpcap.dll to runtime libs
+        echo 📦 Copied wpcap.dll to libs directories
         set FOUND_WPCAP=1
-        set NPCAP_SOURCE_DIR=%NPCAP_PATH%
+        set "NPCAP_SOURCE_DIR=%NPCAP_PATH%"
     ) else (
         echo ⚠️  Failed to copy wpcap.dll (permission issue?)
     )
@@ -144,9 +148,11 @@ if exist "%NPCAP_PATH%\wpcap.dll" (
 
 if exist "%NPCAP_PATH%\Packet.dll" (
     echo ✅ Found Packet.dll at: %NPCAP_PATH%
+    REM Copy to both locations: libs dir for Tauri resources and runtime libs for backward compatibility
+    copy "%NPCAP_PATH%\Packet.dll" "%LIBS_DIR%\" >nul 2>&1
     copy "%NPCAP_PATH%\Packet.dll" "%RUNTIME_LIBS_DIR%\" >nul 2>&1
     if !errorlevel!==0 (
-        echo 📦 Copied Packet.dll to runtime libs
+        echo 📦 Copied Packet.dll to libs directories
         set FOUND_PACKET=1
     ) else (
         echo ⚠️  Failed to copy Packet.dll (permission issue?)

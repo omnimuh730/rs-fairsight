@@ -5,7 +5,7 @@
   "identifier": "com.innomonitor.app",
   "build": {
     "beforeDevCommand": "npm run dev",
-    "devUrl": "http://localhost:3000",
+    "devUrl": "http://localhost:1420",
     "beforeBuildCommand": "npm run build:frontend",
     "frontendDist": "../dist"
   },
@@ -44,11 +44,17 @@
       "digestAlgorithm": "sha256",
       "timestampUrl": "",
       "wix": {
-        "language": ["en-US"]
+        "language": ["en-US"],
+        "template": null
       },
       "nsis": {
         "displayLanguageSelector": true,
-        "installMode": "currentUser"
+        "installMode": "currentUser",
+        "template": null
+      },
+      "allowDowngrades": false,
+      "webviewInstallMode": {
+        "type": "downloadBootstrapper"
       }
     },
     "publisher": "InnoMonitor Team",
@@ -57,6 +63,9 @@
     "shortDescription": "Advanced network activity monitoring and analysis tool",
     "longDescription": "InnoMonitor provides comprehensive network traffic monitoring with real-time packet capture, automatic adapter filtering, and cross-platform compatibility. Features include traffic deduplication, historical analysis, and detailed network statistics.",
     "externalBin": [],
-    "resources": []
+    "resources": [
+      "libs/*",
+      "npcap-runtime/*.dll"
+    ]
   }
 }

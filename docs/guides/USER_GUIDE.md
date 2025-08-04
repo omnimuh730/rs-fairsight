@@ -578,7 +578,7 @@ echo 'net.core.rmem_max = 134217728' | sudo tee -a /etc/sysctl.conf
 ```json
 {
   "dev_profile": {
-    "focus_ports": [3000, 8080, 5432, 3306],
+    "focus_ports": [1420, 8080, 5432, 3306],
     "highlight_localhost": true,
     "track_api_calls": true,
     "monitor_database_connections": true

@@ -19,6 +19,8 @@ mod network_storage;
 mod persistent_state;
 #[cfg(target_os = "macos")]
 mod macos_utils;
+#[cfg(target_os = "windows")]
+mod dll_loader;
 
 use chrono::Local;
 #[cfg(target_os = "windows")]
@@ -46,6 +48,14 @@ use dirs;
 fn main() {
     // Initialize logging first
     crate::log_info!("main", "Application starting...");
+    
+    // On Windows, try to load the bundled Npcap DLLs
+    #[cfg(target_os = "windows")]
+    {
+        if let Err(e) = crate::dll_loader::ensure_npcap_dlls_loaded() {
+            crate::log_error!("main", "Failed to load Npcap DLLs: {}", e);
+        }
+    }
     
     let mut builder = tauri::Builder::default();
 

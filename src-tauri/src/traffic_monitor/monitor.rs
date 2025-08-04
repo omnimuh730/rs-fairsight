@@ -313,7 +313,6 @@ pub fn get_or_create_monitor(adapter_name: &str) -> Arc<TrafficMonitor> {
         .or_insert_with(|| Arc::new(TrafficMonitor::new(adapter_name.to_string())))
         .clone()
 }
-
 pub fn is_comprehensive_monitoring_running() -> bool {
     TRAFFIC_MONITORS.len() > 1 && TRAFFIC_MONITORS.iter().any(|entry| entry.value().is_monitoring())
 }
