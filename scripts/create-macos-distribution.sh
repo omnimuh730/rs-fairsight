@@ -14,6 +14,7 @@ VERSION="1.1.4"
 DIST_DIR="dist/macos"
 BUNDLE_PATH="src-tauri/target/release/bundle/macos/${APP_NAME}.app"
 INSTALLER_SCRIPT="scripts/install-macos-deps.sh"
+LAUNCHER_SCRIPT="scripts/launch-innomonitor.sh"
 
 # Check prerequisites
 if [ ! -d "$BUNDLE_PATH" ]; then
@@ -23,6 +24,11 @@ fi
 
 if [ ! -f "$INSTALLER_SCRIPT" ]; then
     echo "❌ Dependency installer script not found at: $INSTALLER_SCRIPT"
+    exit 1
+fi
+
+if [ ! -f "$LAUNCHER_SCRIPT" ]; then
+    echo "❌ Launcher script not found at: $LAUNCHER_SCRIPT"
     exit 1
 fi
 
@@ -40,18 +46,30 @@ echo "📋 Copying dependency installer..."
 cp "$INSTALLER_SCRIPT" "$DIST_DIR/"
 chmod +x "$DIST_DIR/install-macos-deps.sh"
 
+# Copy launcher script
+echo "🚀 Copying launcher script..."
+cp "$LAUNCHER_SCRIPT" "$DIST_DIR/"
+chmod +x "$DIST_DIR/launch-innomonitor.sh"
+
 # Create README for users
 cat > "$DIST_DIR/README.txt" << EOF
 InnoMonitor v${VERSION} for macOS
 ================================
 
-IMPORTANT: Before running InnoMonitor for the first time, install dependencies:
+IMPORTANT: Setup Instructions (Run in order):
 
 1. Install Dependencies (REQUIRED):
    bash install-macos-deps.sh
 
-2. Run InnoMonitor:
-   open InnoMonitor.app
+2. Launch InnoMonitor (IMPORTANT - Use the launcher):
+   bash launch-innomonitor.sh
+
+   OR manually add to System Settings:
+   - System Settings → Privacy & Security → Full Disk Access
+   - Add InnoMonitor.app
+   - Then: open InnoMonitor.app
+
+DO NOT run InnoMonitor directly with 'sudo' - this causes security errors.
 
 Installation Requirements:
 - macOS 10.13 or later
@@ -59,13 +77,20 @@ Installation Requirements:
 - Admin access (for dependency installation only)
 
 Troubleshooting:
-- If app won't open: Right-click → Open (bypasses Gatekeeper)
+- If app won't open: Use launch-innomonitor.sh script
 - If dependencies fail: Install Homebrew first, then retry
+- For setugid errors: Never use 'sudo' directly with the app
 - For errors: Check /tmp/innomonitor-deps-install.log
+
+Files in this package:
+- InnoMonitor.app: The main application
+- install-macos-deps.sh: Installs required dependencies
+- launch-innomonitor.sh: Properly launches the app with permissions
+- uninstall-dependencies.sh: Removes installed dependencies
 
 Uninstallation:
 - Remove app: Delete InnoMonitor.app
-- Remove dependencies: sudo rm -rf /usr/local/lib/innomonitor
+- Remove dependencies: bash uninstall-dependencies.sh
 
 For support: https://github.com/omnimuh730/rs-fairsight
 EOF
@@ -108,6 +133,7 @@ cat > "$DIST_DIR/distribution-info.json" << EOF
     "files": [
         "InnoMonitor.app",
         "install-macos-deps.sh",
+        "launch-innomonitor.sh",
         "uninstall-dependencies.sh",
         "README.txt"
     ]

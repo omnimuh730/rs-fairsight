@@ -44,6 +44,12 @@ echo "🔧 Setting proper permissions..."
 chmod -R 755 "$BUNDLE_PATH"
 chmod +x "$BINARY_PATH"
 
+# IMPORTANT: Remove any setuid/setgid bits to avoid macOS security errors
+# macOS doesn't allow GUI apps to run with setuid permissions
+chmod u-s,g-s "$BINARY_PATH" 2>/dev/null || true
+
+echo "✅ Removed any setuid/setgid permissions to prevent macOS security errors"
+
 # Create a dependency requirement file
 DEPS_INFO_FILE="${BUNDLE_PATH}/Contents/Resources/dependency-requirements.json"
 mkdir -p "$(dirname "$DEPS_INFO_FILE")"
