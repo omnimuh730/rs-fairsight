@@ -37,8 +37,13 @@ pub fn create_packet_capture(adapter_name: &str) -> Option<Capture<pcap::Active>
                             return Some(cap);
                         }
                         Err(e) => {
-                            eprintln!("❌ Failed to open capture on {}: {}. Will retry later.", adapter_name, e);
-                            crate::log_error!("packet_capture", "❌ Failed to open capture on '{}': {}", adapter_name, e);
+                            let err_str = e.to_string();
+                            if err_str.contains("BIOCPROMISC") {
+                                // Suppress error and log for BIOCPROMISC, but still retry silently
+                            } else {
+                                eprintln!("❌ Failed to open capture on {}: {}. Will retry later.", adapter_name, e);
+                                crate::log_error!("packet_capture", "❌ Failed to open capture on '{}': {}", adapter_name, e);
+                            }
                         }
                     }
                 }

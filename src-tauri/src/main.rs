@@ -145,12 +145,6 @@ fn main() {
     // (Moved) Auto-start network monitoring will now be handled in the Tauri .setup closure below
 
     builder
-        .plugin(
-            tauri_plugin_autostart::init(
-                MacosLauncher::LaunchAgent,
-                None
-            )
-        )
         .setup(|app| {
             setup_tray_and_window_events(app)?;
 
