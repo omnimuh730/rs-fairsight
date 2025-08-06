@@ -47,7 +47,7 @@ npm run bundle
 npm run tauri:build
 
 # GitHub Actions (automated)
-git tag v1.1.5 && git push origin v1.1.5
+git tag v1.1.601 && git push origin v1.1.601
 ```
 
 ## 📁 Installer Output Locations
@@ -66,7 +66,7 @@ To create DMG: use additional tools or Tauri DMG config
 ### Windows MSI
 ```
 src-tauri/target/release/bundle/msi/
-└── InnoMonitor_1.1.4_x64_en-US.msi ← Install this on any Windows PC
+└── InnoMonitor_1.1.601_x64_en-US.msi ← Install this on any Windows PC
     └── Program Files/InnoMonitor/
         ├── InnoMonitor.exe (main binary)
         └── libs/ (created by post-build script)
@@ -160,8 +160,8 @@ dir C:\temp\extract\*.dll
 ### GitHub Release
 - [ ] Update version in `src-tauri/tauri.conf.json`  
 - [ ] Update version in `package.json`
-- [ ] Commit changes: `git add . && git commit -m "Release v1.1.5"`
-- [ ] Create tag: `git tag v1.1.5`
+- [ ] Commit changes: `git add . && git commit -m "Release v1.1.601"`
+- [ ] Create tag: `git tag v1.1.601`
 - [ ] Push: `git push origin master --tags`
 - [ ] Check GitHub Actions build
 - [ ] Download and test release assets
