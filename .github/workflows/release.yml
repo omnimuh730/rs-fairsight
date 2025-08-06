@@ -90,24 +90,26 @@ jobs:
         run: |
           echo "🍎 Installing macOS dependencies for packet capture..."
 
-          # Install libpcap and pkg-config
           brew install libpcap pkg-config
 
-          # Set environment variables for pcap crate compilation
-          echo "PKG_CONFIG_PATH=$(brew --prefix libpcap)/lib/pkgconfig:$PKG_CONFIG_PATH" >> $GITHUB_ENV
-          echo "LIBPCAP_LIBDIR=$(brew --prefix libpcap)/lib" >> $GITHUB_ENV
-          echo "LIBPCAP_INCDIR=$(brew --prefix libpcap)/include" >> $GITHUB_ENV
-          echo "CPPFLAGS=-I/opt/homebrew/include" >> $GITHUB_ENV
-          echo "LDFLAGS=-L/opt/homebrew/lib" >> $GITHUB_ENV
+          LIBPCAP_LIBDIR="$(brew --prefix libpcap)/lib"
+          LIBPCAP_INCDIR="$(brew --prefix libpcap)/include"
+          PKG_CONFIG_PATH="$(brew --prefix libpcap)/lib/pkgconfig:$PKG_CONFIG_PATH"
 
-          # Now verify libpcap installation (this will use the PKG_CONFIG_PATH set above)
-          export PKG_CONFIG_PATH=$(brew --prefix libpcap)/lib/pkgconfig:$PKG_CONFIG_PATH
+          if [ -d "$LIBPCAP_LIBDIR" ]; then
+            echo "LIBPCAP_LIBDIR=$LIBPCAP_LIBDIR" >> $GITHUB_ENV
+            echo "LDFLAGS=-L$LIBPCAP_LIBDIR" >> $GITHUB_ENV
+          fi
+          if [ -d "$LIBPCAP_INCDIR" ]; then
+            echo "LIBPCAP_INCDIR=$LIBPCAP_INCDIR" >> $GITHUB_ENV
+            echo "CPPFLAGS=-I$LIBPCAP_INCDIR" >> $GITHUB_ENV
+          fi
+          echo "PKG_CONFIG_PATH=$PKG_CONFIG_PATH" >> $GITHUB_ENV
+
+          export PKG_CONFIG_PATH
           pkg-config --exists libpcap && echo "✅ libpcap found" || echo "❌ libpcap not found"
           pkg-config --cflags libpcap
           pkg-config --libs libpcap
-
-      - name: Set PKG_CONFIG_PATH for libpcap
-        run: echo "PKG_CONFIG_PATH=$(brew --prefix libpcap)/lib/pkgconfig" >> $GITHUB_ENV
 
       - name: Install app dependencies and build frontend
         run: npm ci && npm run build
