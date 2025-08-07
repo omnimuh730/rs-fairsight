@@ -89,23 +89,22 @@ jobs:
         if: matrix.platform == 'macos-latest'
         run: |
           echo "🍎 Installing macOS dependencies for packet capture..."
-          
+
           # Install libpcap and pkg-config
           brew install libpcap pkg-config
-          
-          # Verify libpcap installation
-          pkg-config --exists libpcap && echo "✅ libpcap found" || echo "❌ libpcap not found"
-          pkg-config --cflags libpcap
-          pkg-config --libs libpcap
-          
+
           # Set environment variables for pcap crate compilation
           echo "PKG_CONFIG_PATH=$(brew --prefix libpcap)/lib/pkgconfig:$PKG_CONFIG_PATH" >> $GITHUB_ENV
           echo "LIBPCAP_LIBDIR=$(brew --prefix libpcap)/lib" >> $GITHUB_ENV
           echo "LIBPCAP_INCDIR=$(brew --prefix libpcap)/include" >> $GITHUB_ENV
-          
-          # Set additional paths for both Intel and Apple Silicon
           echo "CPPFLAGS=-I/opt/homebrew/include" >> $GITHUB_ENV
           echo "LDFLAGS=-L/opt/homebrew/lib" >> $GITHUB_ENV
+
+          # Now verify libpcap installation (this will use the PKG_CONFIG_PATH set above)
+          export PKG_CONFIG_PATH=$(brew --prefix libpcap)/lib/pkgconfig:$PKG_CONFIG_PATH
+          pkg-config --exists libpcap && echo "✅ libpcap found" || echo "❌ libpcap not found"
+          pkg-config --cflags libpcap
+          pkg-config --libs libpcap
 
       - name: Set PKG_CONFIG_PATH for libpcap
         run: echo "PKG_CONFIG_PATH=$(brew --prefix libpcap)/lib/pkgconfig" >> $GITHUB_ENV
