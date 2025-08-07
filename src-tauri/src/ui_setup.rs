@@ -5,7 +5,6 @@ use tauri::{
     Manager,
 };
 use tauri::include_image;
-use tauri_plugin_autostart::ManagerExt;
 
 #[cfg(target_os = "macos")]
 use crate::macos_utils::{set_activation_policy, activate_app};
@@ -17,13 +16,6 @@ use crate::app_state::set_app_handle;
 pub fn setup_tray_and_window_events(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     set_app_handle(app.handle());
     
-    // Enable autostart with better error handling
-    if let Err(e) = app.autolaunch().enable() {
-        crate::log_warning!("ui_setup", "Failed to enable autostart: {}", e);
-        // Continue execution instead of panicking - autostart is not critical for core functionality
-    } else {
-        crate::log_info!("ui_setup", "Autostart enabled successfully");
-    }
 
     let quit = MenuItem::with_id(app.handle(), "quit", "Quit", true, None::<&str>)?;
     let hide = MenuItem::with_id(app.handle(), "hide", "Hide Window", true, None::<&str>)?;

@@ -26,7 +26,6 @@ use chrono::Local;
 #[cfg(target_os = "windows")]
 use std::path::Path;
 use tauri::Manager;
-use tauri_plugin_autostart::MacosLauncher;
 
 use crate::encryption::KEY;
 use crate::file_utils::{is_log_file_valid, load_backup};
@@ -145,12 +144,6 @@ fn main() {
     // (Moved) Auto-start network monitoring will now be handled in the Tauri .setup closure below
 
     builder
-        .plugin(
-            tauri_plugin_autostart::init(
-                MacosLauncher::LaunchAgent,
-                None
-            )
-        )
         .setup(|app| {
             setup_tray_and_window_events(app)?;
 
