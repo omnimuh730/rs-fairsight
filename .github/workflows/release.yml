@@ -100,14 +100,11 @@ jobs:
           echo "CPPFLAGS=-I/opt/homebrew/include" >> $GITHUB_ENV
           echo "LDFLAGS=-L/opt/homebrew/lib" >> $GITHUB_ENV
 
-          # Now verify libpcap installation (this will use the PKG_CONFIG_PATH set above)
+          # Now verify libpcap installation (this will use the PKG_CONFIG_PATH set above for this shell)
           export PKG_CONFIG_PATH=$(brew --prefix libpcap)/lib/pkgconfig:$PKG_CONFIG_PATH
           pkg-config --exists libpcap && echo "✅ libpcap found" || echo "❌ libpcap not found"
           pkg-config --cflags libpcap
           pkg-config --libs libpcap
-
-      - name: Set PKG_CONFIG_PATH for libpcap
-        run: echo "PKG_CONFIG_PATH=$(brew --prefix libpcap)/lib/pkgconfig" >> $GITHUB_ENV
 
       - name: Install app dependencies and build frontend
         run: npm ci && npm run build
