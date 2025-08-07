@@ -10,7 +10,7 @@ echo "================================================="
 
 # Configuration
 APP_NAME="InnoMonitor"
-VERSION="1.1.4"
+VERSION="1.1.601"
 DIST_DIR="dist/macos"
 BUNDLE_PATH="src-tauri/target/release/bundle/macos/${APP_NAME}.app"
 INSTALLER_SCRIPT="scripts/install-macos-deps.sh"

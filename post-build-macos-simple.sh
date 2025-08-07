@@ -70,7 +70,7 @@ cat > "$DEPS_INFO_FILE" << EOF
     },
     "installer_script": "install-macos-deps.sh",
     "build_date": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
-    "app_version": "1.1.4"
+    "app_version": "1.1.601"
 }
 EOF
 
