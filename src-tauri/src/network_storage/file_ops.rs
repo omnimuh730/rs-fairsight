@@ -1,6 +1,6 @@
 use std::fs;
 use std::path::PathBuf;
-use chrono::{NaiveDate, Local, TimeZone};
+use chrono::{NaiveDate};
 use super::types::DailyNetworkSummary;
 
 pub fn load_daily_summary(storage_dir: &PathBuf, date: &str) -> Result<DailyNetworkSummary, String> {

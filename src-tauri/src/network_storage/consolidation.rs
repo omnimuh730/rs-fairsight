@@ -50,7 +50,16 @@ pub fn merge_sessions(adapter_name: &str, sessions: &[NetworkSession]) -> Result
     let total_outgoing: u64 = sessions.iter().map(|s| s.total_outgoing_bytes).sum();
     let total_incoming_packets: u64 = sessions.iter().map(|s| s.total_incoming_packets).sum();
     let total_outgoing_packets: u64 = sessions.iter().map(|s| s.total_outgoing_packets).sum();
-    let total_duration: u64 = sessions.iter().map(|s| s.duration).sum();
+    
+    // Calculate duration based on actual time span, not sum of individual durations
+    // This prevents the >24 hour issue when sessions span across day boundaries
+    let start_time = first_session.start_time;
+    let end_time = last_session.end_time.unwrap_or(start_time);
+    let calculated_duration = if end_time > start_time {
+        end_time - start_time
+    } else {
+        0
+    };
     
     // Merge hosts and services (keep top entries)
     let mut all_hosts = Vec::new();
@@ -81,7 +90,7 @@ pub fn merge_sessions(adapter_name: &str, sessions: &[NetworkSession]) -> Result
         total_outgoing_bytes: total_outgoing,
         total_incoming_packets: total_incoming_packets,
         total_outgoing_packets: total_outgoing_packets,
-        duration: total_duration,
+        duration: calculated_duration,
         traffic_data: Vec::new(), // Clear detailed traffic data for consolidated sessions
         top_hosts: all_hosts,
         top_services: all_services,
@@ -133,6 +142,21 @@ pub fn calculate_macos_totals(sessions: &[NetworkSession]) -> (u64, u64, u64) {
         }
     }
     
-    let total_duration = sessions.iter().map(|s| s.duration).sum();
+    // Calculate duration based on actual time span, not sum of individual durations
+    // This prevents the >24 hour issue when sessions span across day boundaries
+    let total_duration = if !sessions.is_empty() {
+        let first_session = &sessions[0];
+        let last_session = &sessions[sessions.len() - 1];
+        let start_time = first_session.start_time;
+        let end_time = last_session.end_time.unwrap_or(start_time);
+        if end_time > start_time {
+            end_time - start_time
+        } else {
+            0
+        }
+    } else {
+        0
+    };
+    
     (total_in_bytes, total_out_bytes, total_duration)
 }

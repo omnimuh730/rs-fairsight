@@ -118,6 +118,33 @@ impl NetworkStorageManager {
         traffic_data: &[crate::traffic_monitor::TrafficData],
         top_services: &[crate::traffic_monitor::ServiceInfo]
     ) -> Result<(), String> {
+        // Safety check: ensure no session duration exceeds 24 hours for a single day
+        const MAX_SECONDS_PER_DAY: u64 = 24 * 60 * 60; // 86400 seconds
+        if duration > MAX_SECONDS_PER_DAY {
+            eprintln!("⚠️  Warning: Session duration ({}) exceeds 24 hours for single day. Capping at 24 hours.", duration);
+            // Cap the duration at 24 hours to prevent display issues
+            let capped_duration = MAX_SECONDS_PER_DAY;
+            // Adjust bytes proportionally
+            let ratio = capped_duration as f64 / duration as f64;
+            let capped_in_bytes = (in_bytes as f64 * ratio).round() as u64;
+            let capped_out_bytes = (out_bytes as f64 * ratio).round() as u64;
+            let capped_in_packets = (in_packets as f64 * ratio).round() as u64;
+            let capped_out_packets = (out_packets as f64 * ratio).round() as u64;
+            
+            return self.save_day_part(
+                session,
+                start,
+                end,
+                capped_duration,
+                capped_in_bytes,
+                capped_out_bytes,
+                capped_in_packets,
+                capped_out_packets,
+                traffic_data,
+                top_services
+            );
+        }
+
         let date = start.format("%Y-%m-%d").to_string();
         let mut daily_summary = load_daily_summary(&self.storage_dir, &date)
             .unwrap_or_else(|_| DailyNetworkSummary {

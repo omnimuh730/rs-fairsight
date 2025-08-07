@@ -147,12 +147,12 @@ const NetworkDataSync = ({ onDataUpdate }) => {
 				gridTemplateColumns: { xs: '1fr', md: 'repeat(2, 1fr)' },
 				gap: 2 
 			}}>
-				{/* Real-time (Persistent State) Data */}
+				{/* Real-time (Today's Accumulated) Data */}
 				<Box sx={{ p: 2, bgcolor: 'background.default', borderRadius: 1 }}>
 					<Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
 						<NetworkCheck color="success" sx={{ mr: 1, fontSize: 20 }} />
 						<Typography variant="subtitle2" color="text.secondary">
-							Real-time Monitoring Data
+							Today's Accumulated Data
 						</Typography>
 						<Chip 
 							label="Live" 

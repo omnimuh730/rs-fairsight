@@ -35,15 +35,22 @@ export const enhanceDataWithPersistentState = (sessionData, persistentState) => 
 	}
 
 	const adapters = persistentState.persistent_state.persistent_state;
-
 	const today = getLocalDateString(); // YYYY-MM-DD format in local timezone
 	
-	// Calculate current cumulative totals from all adapters
+	// Get cumulative totals from backend (if available) or calculate from adapters
 	let currentCumulativeIncoming = 0;
 	let currentCumulativeOutgoing = 0;
-	for (const adapter of Object.values(adapters)) {
-		currentCumulativeIncoming += adapter.cumulative_incoming_bytes || 0;
-		currentCumulativeOutgoing += adapter.cumulative_outgoing_bytes || 0;
+	
+	if (persistentState.combined_totals?.cumulative_incoming_bytes !== undefined) {
+		// Use backend-provided cumulative totals
+		currentCumulativeIncoming = persistentState.combined_totals.cumulative_incoming_bytes;
+		currentCumulativeOutgoing = persistentState.combined_totals.cumulative_outgoing_bytes;
+	} else {
+		// Fallback to calculating from adapters
+		for (const adapter of Object.values(adapters)) {
+			currentCumulativeIncoming += adapter.cumulative_incoming_bytes || 0;
+			currentCumulativeOutgoing += adapter.cumulative_outgoing_bytes || 0;
+		}
 	}
 	
 	console.log('📊 Current cumulative totals:', {
@@ -74,21 +81,47 @@ export const enhanceDataWithPersistentState = (sessionData, persistentState) => 
 		let hasRealTimeData = false;
 		
 		if (day.date === today) {
-			// For today, use the cumulative totals (persistent state is source of truth)
-			dayRealIncoming = currentCumulativeIncoming;
-			dayRealOutgoing = currentCumulativeOutgoing;
-			hasRealTimeData = true;
+			// For today, we have two options:
+			// 1. If we have session data for today, use it (preferred)
+			// 2. If no session data, calculate today's portion from cumulative data
 			
-			console.log(`📅 Today (${today}) using persistent state as source of truth:`, {
-				sessionIncoming: day.total_incoming_bytes,
-				sessionOutgoing: day.total_outgoing_bytes,
-				persistentIncoming: dayRealIncoming,
-				persistentOutgoing: dayRealOutgoing,
-				incomingMB: Math.round(dayRealIncoming / (1024 * 1024)),
-				outgoingMB: Math.round(dayRealOutgoing / (1024 * 1024)),
-				note: 'Using persistent state (real-time) as authoritative data source'
-			});
+			if (day.total_incoming_bytes > 0 || day.total_outgoing_bytes > 0) {
+				// Use session data for today (this is the correct approach)
+				dayRealIncoming = day.total_incoming_bytes;
+				dayRealOutgoing = day.total_outgoing_bytes;
+				hasRealTimeData = false; // Using session data, not real-time
+				
+				console.log(`📅 Today (${today}) using session data:`, {
+					sessionIncoming: day.total_incoming_bytes,
+					sessionOutgoing: day.total_outgoing_bytes,
+					incomingMB: Math.round(day.total_incoming_bytes / (1024 * 1024)),
+					outgoingMB: Math.round(day.total_outgoing_bytes / (1024 * 1024)),
+					note: 'Using session data for today (correct approach)'
+				});
+			} else {
+				// No session data for today, calculate today's portion from cumulative
+				// This is the portion that hasn't been saved to session data yet
+				const todayIncoming = currentCumulativeIncoming - totalHistoricalIncoming;
+				const todayOutgoing = currentCumulativeOutgoing - totalHistoricalOutgoing;
+				
+				dayRealIncoming = Math.max(0, todayIncoming);
+				dayRealOutgoing = Math.max(0, todayOutgoing);
+				hasRealTimeData = true;
+				
+				console.log(`📅 Today (${today}) calculated from cumulative data:`, {
+					cumulativeIncoming: currentCumulativeIncoming,
+					cumulativeOutgoing: currentCumulativeOutgoing,
+					historicalIncoming: totalHistoricalIncoming,
+					historicalOutgoing: totalHistoricalOutgoing,
+					calculatedTodayIncoming: dayRealIncoming,
+					calculatedTodayOutgoing: dayRealOutgoing,
+					incomingMB: Math.round(dayRealIncoming / (1024 * 1024)),
+					outgoingMB: Math.round(dayRealOutgoing / (1024 * 1024)),
+					note: 'Calculated today\'s portion from cumulative data'
+				});
+			}
 		} else {
+			// For past days, use session data as-is
 			console.log(`📅 Past day (${day.date}) using session data:`, {
 				incoming: day.total_incoming_bytes,
 				outgoing: day.total_outgoing_bytes,
@@ -107,7 +140,7 @@ export const enhanceDataWithPersistentState = (sessionData, persistentState) => 
 			// Keep original session data
 			session_incoming_bytes: day.total_incoming_bytes,
 			session_outgoing_bytes: day.total_outgoing_bytes,
-			// Use real-time data if available, otherwise session data
+			// Use calculated real data
 			total_incoming_bytes: dayRealIncoming,
 			total_outgoing_bytes: dayRealOutgoing,
 		};

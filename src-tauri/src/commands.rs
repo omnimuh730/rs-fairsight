@@ -519,28 +519,37 @@ pub fn get_current_network_totals() -> Result<std::collections::HashMap<String, 
     totals.insert("persistent_state".to_string(), persistent_state_structure);
     totals.insert("today_sessions".to_string(), serde_json::to_value(&today_sessions).unwrap());
     
-    // Calculate combined totals
-    let mut combined_incoming = 0u64;
-    let mut combined_outgoing = 0u64;
+    // Calculate today's real-time data (not cumulative)
+    // For real-time monitoring display, we want today's data, not lifetime totals
+    let today_incoming = today_sessions.total_incoming_bytes;
+    let today_outgoing = today_sessions.total_outgoing_bytes;
+    
+    // Calculate cumulative totals for reference (but not for display)
+    let mut cumulative_incoming = 0u64;
+    let mut cumulative_outgoing = 0u64;
     for state in persistent_states.values() {
-        combined_incoming += state.cumulative_incoming_bytes;
-        combined_outgoing += state.cumulative_outgoing_bytes;
+        cumulative_incoming += state.cumulative_incoming_bytes;
+        cumulative_outgoing += state.cumulative_outgoing_bytes;
     }
     
     let combined = serde_json::json!({
-        "total_incoming_bytes": combined_incoming,
-        "total_outgoing_bytes": combined_outgoing,
+        // Real-time monitoring should show today's data, not cumulative
+        "total_incoming_bytes": today_incoming,
+        "total_outgoing_bytes": today_outgoing,
         "session_incoming_bytes": today_sessions.total_incoming_bytes,
         "session_outgoing_bytes": today_sessions.total_outgoing_bytes,
+        // Include cumulative data for reference (used by frontend processing)
+        "cumulative_incoming_bytes": cumulative_incoming,
+        "cumulative_outgoing_bytes": cumulative_outgoing,
         "active_adapters": persistent_states.len(),
         "today_sessions_count": today_sessions.sessions.len()
     });
     
     totals.insert("combined_totals".to_string(), combined);
     
-    println!("📊 Current totals - Persistent: ↓{}KB ↑{}KB, Sessions: ↓{}KB ↑{}KB", 
-        combined_incoming / 1024, combined_outgoing / 1024,
-        today_sessions.total_incoming_bytes / 1024, today_sessions.total_outgoing_bytes / 1024);
+    println!("📊 Current totals - Today: ↓{}KB ↑{}KB, Cumulative: ↓{}KB ↑{}KB", 
+        today_incoming / 1024, today_outgoing / 1024,
+        cumulative_incoming / 1024, cumulative_outgoing / 1024);
     
     Ok(totals)
 }

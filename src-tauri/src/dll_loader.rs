@@ -1,4 +1,3 @@
-use std::ffi::OsString;
 use std::os::windows::ffi::OsStrExt;
 use std::path::PathBuf;
 use winapi::um::libloaderapi::LoadLibraryW;
