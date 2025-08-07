@@ -142,33 +142,7 @@ fn main() {
         rt.block_on(start_web_server());
     });
 
-    // Auto-start network monitoring on application startup
-    std::thread::spawn(|| {
-        let rt = tokio::runtime::Runtime::new().unwrap();
-        rt.block_on(async {
-            // Wait a bit for the application to fully initialize
-            tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
-            
-            // Prevent duplicate auto-start attempts
-            if AUTO_START_COMPLETED.swap(true, std::sync::atomic::Ordering::SeqCst) {
-                println!("ℹ️  Auto-start already completed, skipping duplicate attempt");
-                return;
-            }
-            
-            // Simple single adapter approach that was working
-            match get_default_network_adapter() {
-                Ok(adapter_name) => {
-                    println!("🚀 Auto-starting network monitoring on adapter: {}", adapter_name);
-                    let monitor = get_or_create_monitor(&adapter_name);
-                    match monitor.start_monitoring().await {
-                        Ok(_) => println!("✅ Auto-started network monitoring on adapter: {}", adapter_name),
-                        Err(e) => eprintln!("❌ Failed to auto-start network monitoring: {}", e),
-                    }
-                }
-                Err(e) => eprintln!("⚠️  No suitable network adapter found for auto-start: {}", e),
-            }
-        });
-    });
+    // (Moved) Auto-start network monitoring will now be handled in the Tauri .setup closure below
 
     builder
         .plugin(
@@ -179,7 +153,25 @@ fn main() {
         )
         .setup(|app| {
             setup_tray_and_window_events(app)?;
-            
+
+            // Auto-start network monitoring after Tauri is fully initialized
+            tauri::async_runtime::spawn(async {
+                // Wait a bit for the application to fully initialize (optional, can be tuned)
+                tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
+
+                // Prevent duplicate auto-start attempts
+                if AUTO_START_COMPLETED.swap(true, std::sync::atomic::Ordering::SeqCst) {
+                    println!("ℹ️  Auto-start already completed, skipping duplicate attempt");
+                    return;
+                }
+
+                // Start comprehensive monitoring on all suitable adapters
+                match crate::commands::start_comprehensive_monitoring().await {
+                    Ok(msg) => println!("✅ Auto-started comprehensive network monitoring: {}", msg),
+                    Err(e) => eprintln!("❌ Failed to auto-start comprehensive monitoring: {}", e),
+                }
+            });
+
             // Check for unexpected shutdown and warn if needed
             match get_persistent_state_manager().was_unexpected_shutdown() {
                 Ok(true) => {
@@ -192,7 +184,7 @@ fn main() {
                     eprintln!("❌ Failed to check shutdown state: {}", e);
                 }
             }
-            
+
             Ok(())
         })
         .on_window_event(|window, event| {
