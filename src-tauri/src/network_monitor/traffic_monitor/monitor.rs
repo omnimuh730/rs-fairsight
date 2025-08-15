@@ -1,5 +1,5 @@
 use std::sync::{Arc, Mutex};
-use chrono::Local;
+use chrono::{Local, Datelike};
 use std::time::Duration;
 use dashmap::DashMap;
 use parking_lot::RwLock;
@@ -17,6 +17,7 @@ pub struct TrafficMonitor {
     pub traffic_history: Arc<Mutex<Vec<TrafficData>>>,
     pub is_running: Arc<RwLock<bool>>,
     pub session_start_time: Arc<RwLock<Option<u64>>>,
+    last_known_date: Arc<RwLock<Option<u32>>>,
 }
 
 impl TrafficMonitor {
@@ -70,6 +71,7 @@ impl TrafficMonitor {
             traffic_history: Arc::new(Mutex::new(Vec::new())),
             is_running: Arc::new(RwLock::new(false)),
             session_start_time: Arc::new(RwLock::new(None)),
+            last_known_date: Arc::new(RwLock::new(Some(Local::now().ordinal()))),
         }
     }
 
@@ -106,6 +108,7 @@ impl TrafficMonitor {
         let traffic_history = Arc::clone(&self.traffic_history);
         let is_running_clone = Arc::clone(&self.is_running);
         let stats = Arc::clone(&self.stats);
+        let last_known_date = Arc::clone(&self.last_known_date);
 
         // Start monitoring in a separate task
         tokio::spawn(async move {
@@ -116,6 +119,7 @@ impl TrafficMonitor {
                 traffic_history,
                 is_running_clone,
                 stats,
+                last_known_date,
             ).await;
         });
 
@@ -174,6 +178,21 @@ impl TrafficMonitor {
         stats.clone()
     }
 
+    pub fn reset_daily_stats(&self) {
+        let mut stats = self.stats.write();
+        stats.total_incoming_bytes = 0;
+        stats.total_outgoing_bytes = 0;
+        stats.total_incoming_packets = 0;
+        stats.total_outgoing_packets = 0;
+        
+        // Also clear hosts and services if they are considered daily
+        self.hosts.clear();
+        self.services.clear();
+
+        *self.last_known_date.write() = Some(Local::now().ordinal());
+        println!("🌅 Day changed, traffic stats reset for {}", self.config.read().adapter_name);
+    }
+
     async fn monitor_traffic(
         adapter_name: String,
         hosts: Arc<DashMap<String, NetworkHost>>,
@@ -181,6 +200,7 @@ impl TrafficMonitor {
         traffic_history: Arc<Mutex<Vec<TrafficData>>>,
         is_running: Arc<RwLock<bool>>,
         stats: Arc<RwLock<MonitoringStats>>,
+        last_known_date: Arc<RwLock<Option<u32>>>,
     ) {
         println!("🚀 Starting comprehensive traffic monitoring for adapter: {} (with packet deduplication)", adapter_name);
 
@@ -222,7 +242,7 @@ impl TrafficMonitor {
                             &adapter_name, &stats, &start_time, &mut last_save_time,
                             &mut last_save_incoming_bytes, &mut last_save_outgoing_bytes,
                             &mut last_save_incoming_packets, &mut last_save_outgoing_packets,
-                            &traffic_history
+                            &traffic_history, &last_known_date
                         ).await;
                     }
                     _ = async {
@@ -244,7 +264,7 @@ impl TrafficMonitor {
                                     
                                     process_real_packet(
                                         packet, &hosts, &services, &traffic_history, 
-                                        &stats, start_time, &adapter_name
+                                        &stats, start_time, &adapter_name, &last_known_date
                                     ).await;
                                     // Continue immediately to next packet without delay
                                 }
@@ -290,7 +310,7 @@ impl TrafficMonitor {
                         &adapter_name, &stats, &start_time, &mut last_save_time,
                         &mut last_save_incoming_bytes, &mut last_save_outgoing_bytes,
                         &mut last_save_incoming_packets, &mut last_save_outgoing_packets,
-                        &traffic_history
+                        &traffic_history, &last_known_date
                     ).await;
                 }
             }

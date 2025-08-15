@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
 	Container,
 	Typography,
@@ -15,6 +15,7 @@ import {
 	Router,
 	Dashboard
 } from '@mui/icons-material';
+import { format } from 'date-fns';
 
 import { useNetworkAdapters, useNetworkMonitoring } from './hooks/useNetworkMonitoring';
 import { useDailySummary } from './hooks/useDailySummary';
@@ -34,7 +35,8 @@ const NetworkMonitorPage = () => {
 		unexpectedShutdown,
 		refreshLifetimeStats,
 	} = useNetworkMonitoring(adapters);
-	   const { summary: todaySummary, loading: summaryLoading, error: summaryError } = useDailySummary(new Date());
+	const todayString = useMemo(() => format(new Date(), 'yyyy-MM-dd'), []);
+	const { summary: todaySummary, loading: summaryLoading, error: summaryError } = useDailySummary(todayString);
 
 	const handleAdapterSelect = (adapterName) => {
 		const adapterIndex = adapters.findIndex(adapter => adapter.name === adapterName);
@@ -133,6 +135,7 @@ const NetworkMonitorPage = () => {
 									lifetimeStats={lifetimeStats}
 									unexpectedShutdown={unexpectedShutdown}
 									onRefreshLifetimeStats={refreshLifetimeStats}
+									todaySummary={todaySummary}
 								/>
 							) : (
 								<AdapterDetails
@@ -140,7 +143,7 @@ const NetworkMonitorPage = () => {
 									isMonitoring={monitoringStates[adapters[selectedTab - 1]?.name] || false}
 									stats={networkStats[adapters[selectedTab - 1]?.name]}
 									lifetimeState={lifetimeStats[adapters[selectedTab - 1]?.name]}
-								                            todaySummary={todaySummary}
+									todaySummary={todaySummary}
 								/>
 							)}
 						</Box>

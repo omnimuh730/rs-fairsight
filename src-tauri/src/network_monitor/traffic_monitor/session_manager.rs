@@ -1,10 +1,12 @@
 use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
 use parking_lot::RwLock;
+use chrono::{Local, Datelike};
 
 use crate::network_monitor::network_storage::{NETWORK_STORAGE, NetworkSession};
 use crate::network_monitor::persistent_state::get_persistent_state_manager;
 use super::types::{MonitoringStats, TrafficData};
+use super::monitor::TRAFFIC_MONITORS;
 
 pub async fn save_periodic_session(
     adapter_name: &str,
@@ -16,8 +18,21 @@ pub async fn save_periodic_session(
     last_save_incoming_packets: &mut u64,
     last_save_outgoing_packets: &mut u64,
     _traffic_history: &Arc<Mutex<Vec<TrafficData>>>,
+    last_known_date: &Arc<RwLock<Option<u32>>>,
 ) {
     let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
+    let today = Local::now().ordinal();
+
+    // Check for day change
+    let mut last_date = last_known_date.write();
+    if last_date.map_or(true, |d| d != today) {
+        if let Some(monitor) = TRAFFIC_MONITORS.get(adapter_name) {
+            monitor.reset_daily_stats();
+        }
+        *last_date = Some(today);
+    }
+    drop(last_date);
+
     let current_stats = {
         let stats_guard = stats.read();
         stats_guard.clone()
