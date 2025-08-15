@@ -1,10 +1,8 @@
-use pcap::{Capture, Device, Active, Address};
+use pcap::{Capture, Device, Active};
 use std::net::IpAddr;
 use etherparse::LaxPacketHeaders;
 use dns_lookup::lookup_addr;
-use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
-use tokio::time::{interval, Duration};
 
 pub struct RealTrafficMonitor {
     adapter_name: String,
@@ -53,24 +51,22 @@ impl RealTrafficMonitor {
         }
 
         while *self.is_running.lock().unwrap() {
-            let mut cap = self.capture.take().unwrap();
-            let result = cap.next_packet();
-            self.capture = Some(cap);
-
-            match result {
-                Ok(packet) => {
-                    // Parse packet headers (similar to sniffnet's approach)
-                    if let Ok(headers) = LaxPacketHeaders::from_ethernet(&packet.data) {
-                        self.process_packet(headers, packet.data.len()).await;
+            let packet_data = if let Some(cap) = self.capture.as_mut() {
+                match cap.next_packet() {
+                    Ok(packet) => Some(packet.data.to_vec()),
+                    Err(pcap::Error::TimeoutExpired) => None,
+                    Err(e) => {
+                        eprintln!("Packet capture error: {}", e);
+                        break;
                     }
                 }
-                Err(pcap::Error::TimeoutExpired) => {
-                    // Continue on timeout (normal for UI updates)
-                    continue;
-                }
-                Err(e) => {
-                    eprintln!("Packet capture error: {}", e);
-                    break;
+            } else {
+                None
+            };
+
+            if let Some(data) = packet_data {
+                if let Ok(headers) = LaxPacketHeaders::from_ethernet(&data) {
+                    self.process_packet(headers, data.len()).await;
                 }
             }
         }
