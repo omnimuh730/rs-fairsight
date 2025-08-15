@@ -451,6 +451,12 @@ pub fn get_available_network_dates() -> Result<Vec<String>, String> {
 }
 
 #[tauri::command]
+pub fn load_daily_summary_command(date: String) -> Result<DailyNetworkSummary, String> {
+    println!("📊 Loading daily summary for date: {}", date);
+    NETWORK_STORAGE.load_daily_summary(&date)
+}
+
+#[tauri::command]
 pub fn cleanup_old_network_data(days_to_keep: u32) -> Result<String, String> {
     NETWORK_STORAGE.cleanup_old_data(days_to_keep)?;
     Ok(format!("Cleaned up network data older than {} days", days_to_keep))

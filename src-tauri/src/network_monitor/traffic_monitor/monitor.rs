@@ -1,5 +1,6 @@
 use std::sync::{Arc, Mutex};
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use chrono::Local;
+use std::time::Duration;
 use dashmap::DashMap;
 use parking_lot::RwLock;
 
@@ -80,7 +81,7 @@ impl TrafficMonitor {
         *is_running = true;
 
         // Record session start time
-        let start_time = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
+        let start_time = Local::now().timestamp() as u64;
         *self.session_start_time.write() = Some(start_time);
 
         let config = self.config.read().clone();
@@ -187,7 +188,7 @@ impl TrafficMonitor {
         let capture_opt = create_packet_capture(&adapter_name);
 
         let mut save_interval = tokio::time::interval(Duration::from_secs(8));
-        let start_time = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
+        let start_time = Local::now().timestamp() as u64;
         let mut last_save_time = start_time;
         let mut last_save_incoming_bytes = 0u64;
         let mut last_save_outgoing_bytes = 0u64;

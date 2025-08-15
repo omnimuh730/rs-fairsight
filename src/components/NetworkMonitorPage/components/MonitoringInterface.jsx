@@ -5,8 +5,10 @@ import TrafficChart from './TrafficChart';
 import NetworkHostsTable from './NetworkHostsTable';
 import ServicesList from './ServicesList';
 
-const MonitoringInterface = ({ adapter, stats }) => {
-	if (!stats) {
+const MonitoringInterface = ({ adapter, stats, todaySummary }) => {
+	const displayStats = todaySummary || stats;
+
+    if (!displayStats) {
 		return (
 			<Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 200 }}>
 				<CircularProgress />
@@ -24,7 +26,7 @@ const MonitoringInterface = ({ adapter, stats }) => {
 							<Card sx={{ height: '100%' }}>
 								<CardContent>
 									<Typography variant="h6" color="primary">
-										↓ {formatBytes(stats.total_incoming_bytes)}
+										↓ {formatBytes(displayStats.total_incoming_bytes)}
 									</Typography>
 									<Typography variant="body2" color="text.secondary">
 										Incoming
@@ -36,7 +38,7 @@ const MonitoringInterface = ({ adapter, stats }) => {
 							<Card sx={{ height: '100%' }}>
 								<CardContent>
 									<Typography variant="h6" color="secondary">
-										↑ {formatBytes(stats.total_outgoing_bytes)}
+										↑ {formatBytes(displayStats.total_outgoing_bytes)}
 									</Typography>
 									<Typography variant="body2" color="text.secondary">
 										Outgoing
@@ -48,7 +50,7 @@ const MonitoringInterface = ({ adapter, stats }) => {
 							<Card sx={{ height: '100%' }}>
 								<CardContent>
 									<Typography variant="h6">
-										{stats.network_hosts.length}
+										{displayStats.unique_hosts}
 									</Typography>
 									<Typography variant="body2" color="text.secondary">
 										Hosts
@@ -60,10 +62,10 @@ const MonitoringInterface = ({ adapter, stats }) => {
 							<Card sx={{ height: '100%' }}>
 								<CardContent>
 									<Typography variant="h6">
-										{formatDuration(stats.monitoring_duration)}
+										                              {displayStats.sessions?.length || 0}
 									</Typography>
 									<Typography variant="body2" color="text.secondary">
-										Duration
+										Sessions
 									</Typography>
 								</CardContent>
 							</Card>
@@ -76,7 +78,7 @@ const MonitoringInterface = ({ adapter, stats }) => {
 							<Typography variant="h6" gutterBottom>
 								Traffic Rate
 							</Typography>
-							<TrafficChart data={stats.traffic_rate} />
+							<TrafficChart data={displayStats.traffic_rate || []} />
 						</CardContent>
 					</Card>
 				</Grid>
@@ -84,11 +86,11 @@ const MonitoringInterface = ({ adapter, stats }) => {
 
 			{/* Network Hosts and Services */}
 			< Grid item xs={12} >
-				<NetworkHostsTable hosts={stats.network_hosts} />
+				<NetworkHostsTable hosts={displayStats.network_hosts || []} />
 			</Grid >
 
 			<Grid item xs={12} sx={{ mt: 2 }}>
-				<ServicesList services={stats.services} />
+				<ServicesList services={displayStats.services || []} />
 			</Grid>
 
 		</Box >

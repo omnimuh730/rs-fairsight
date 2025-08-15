@@ -23,7 +23,8 @@ const DataPersistenceStatus = ({
 	lifetimeStats, 
 	unexpectedShutdown, 
 	onRefreshLifetimeStats,
-	adapters = [] 
+	adapters = [],
+	   todaySummary
 }) => {
 	const [showLifetimeView, setShowLifetimeView] = useState(false);
 
@@ -119,53 +120,53 @@ const DataPersistenceStatus = ({
 						</Typography>
 					</Box>
 
-					<Box sx={{ p: 2, bgcolor: 'background.default', borderRadius: 1 }}>
-						<Typography variant="caption" color="text.secondary">
-							Tracked Adapters
-						</Typography>
-						<Typography variant="h6" color="primary">
-							{Object.keys(lifetimeStats || {}).length}
-						</Typography>
-						<Typography variant="caption" color="text.secondary">
-							of {adapters.length} total
-						</Typography>
-					</Box>
+					               <Box sx={{ p: 2, bgcolor: 'background.default', borderRadius: 1 }}>
+					                   <Typography variant="caption" color="text.secondary">
+					                       Today's Accumulated Data
+					                   </Typography>
+					                   <Typography variant="h6" color="primary">
+					                       {formatBytes((todaySummary?.total_incoming_bytes || 0) + (todaySummary?.total_outgoing_bytes || 0))}
+					                   </Typography>
+					                   <Typography variant="caption" color="text.secondary">
+					                       ↓ {formatBytes(todaySummary?.total_incoming_bytes || 0)} ↑ {formatBytes(todaySummary?.total_outgoing_bytes || 0)}
+					                   </Typography>
+					               </Box>
 
-					<Box sx={{ p: 2, bgcolor: 'background.default', borderRadius: 1 }}>
-						<Typography variant="caption" color="text.secondary">
-							Data Since
-						</Typography>
-						<Typography variant="body2" color="primary">
-							{Object.values(lifetimeStats || {}).length > 0 ? 
-								formatDate(Math.min(...Object.values(lifetimeStats).map(s => s.first_recorded_time).filter(Boolean))) :
-								'No data yet'
-							}
-						</Typography>
-					</Box>
+					               <Box sx={{ p: 2, bgcolor: 'background.default', borderRadius: 1 }}>
+					                   <Typography variant="caption" color="text.secondary">
+					                      Saved Sessions
+					                   </Typography>
+					                   <Typography variant="h6" color="primary">
+					                       {todaySummary?.sessions?.length || 0}
+					                   </Typography>
+					                   <Typography variant="caption" color="text.secondary">
+					                       for today
+					                   </Typography>
+					               </Box>
 				</Box>
 
-				{Object.keys(lifetimeStats || {}).length > 0 && (
-					<Box sx={{ mt: 2 }}>
-						<Typography variant="subtitle2" color="text.secondary" gutterBottom>
-							Per-Adapter Lifetime Stats:
-						</Typography>
-						<Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-							{Object.entries(lifetimeStats).map(([adapterName, stats]) => (
-								<Tooltip 
-									key={adapterName}
-									title={`First seen: ${formatDate(stats.first_recorded_time)} | Last update: ${formatDate(stats.last_update_time)}`}
-								>
-									<Chip
-										icon={<DataUsage />}
-										label={`${adapterName.split(' ')[0]}: ${formatBytes(stats.lifetime_incoming_bytes + stats.lifetime_outgoing_bytes)}`}
-										variant="outlined"
-										size="small"
-									/>
-								</Tooltip>
-							))}
-						</Box>
-					</Box>
-				)}
+				{todaySummary && (
+				<Box sx={{ mt: 2 }}>
+					   <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+					       Today's Sessions:
+					   </Typography>
+					   <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+					       {todaySummary.sessions.map((session, index) => (
+					           <Tooltip
+					               key={index}
+					               title={`Start: ${formatDate(session.start_time)} | End: ${formatDate(session.end_time)} | Duration: ${session.duration}s`}
+					           >
+					               <Chip
+					                   icon={<DataUsage />}
+					                   label={`${session.adapter_name.split(' ')[0]}: ${formatBytes(session.total_incoming_bytes + session.total_outgoing_bytes)}`}
+					                   variant="outlined"
+					                   size="small"
+					               />
+					           </Tooltip>
+					       ))}
+					   </Box>
+				</Box>
+)}
 			</Box>
 		</Paper>
 	);

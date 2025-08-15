@@ -4,8 +4,10 @@ use etherparse::LaxPacketHeaders;
 use dns_lookup::lookup_addr;
 use std::sync::{Arc, Mutex};
 
+use chrono::Local;
+
 pub struct RealTrafficMonitor {
-    adapter_name: String,
+   adapter_name: String,
     capture: Option<Capture<Active>>,
     is_running: Arc<Mutex<bool>>,
 }
@@ -66,16 +68,17 @@ impl RealTrafficMonitor {
 
             if let Some(data) = packet_data {
                 if let Ok(headers) = LaxPacketHeaders::from_ethernet(&data) {
-                    self.process_packet(headers, data.len()).await;
-                }
-            }
-        }
-        Ok(())
-    }
+                   let timestamp = Local::now();
+                   self.process_packet(headers, data.len(), timestamp).await;
+               }
+           }
+       }
+       Ok(())
+   }
 
-    async fn process_packet(&self, headers: LaxPacketHeaders<'_>, packet_size: usize) {
-        // Extract IP addresses from headers
-        let (source_ip, dest_ip) = match (&headers.net, &headers.transport) {
+   async fn process_packet(&self, headers: LaxPacketHeaders<'_>, packet_size: usize, timestamp: chrono::DateTime<Local>) {
+       // Extract IP addresses from headers
+       let (source_ip, dest_ip) = match (&headers.net, &headers.transport) {
             (Some(etherparse::NetHeaders::Ipv4(ipv4, _)), _) => {
                 (IpAddr::V4(ipv4.source.into()), IpAddr::V4(ipv4.destination.into()))
             }
@@ -97,13 +100,13 @@ impl RealTrafficMonitor {
         };
 
         // Perform reverse DNS lookup for external addresses
-        self.resolve_and_store_host(source_ip, source_port, packet_size).await;
-        self.resolve_and_store_host(dest_ip, dest_port, packet_size).await;
-    }
+       self.resolve_and_store_host(source_ip, source_port, packet_size, timestamp).await;
+       self.resolve_and_store_host(dest_ip, dest_port, packet_size, timestamp).await;
+   }
 
-    async fn resolve_and_store_host(&self, ip: IpAddr, port: Option<u16>, bytes: usize) {
-        // Skip local/loopback addresses
-        if ip.is_loopback() || match ip {
+   async fn resolve_and_store_host(&self, ip: IpAddr, port: Option<u16>, bytes: usize, timestamp: chrono::DateTime<Local>) {
+       // Skip local/loopback addresses
+       if ip.is_loopback() || match ip {
             IpAddr::V4(ipv4) => ipv4.is_private(),
             IpAddr::V6(_) => false,
         } {
@@ -117,9 +120,9 @@ impl RealTrafficMonitor {
         };
 
         // TODO: Store in your data structures similar to sniffnet's approach
-        println!("Host: {} -> {:?}, Port: {:?}, Bytes: {}", 
-            ip, hostname, port, bytes);
-    }
+       println!("Host: {} -> {:?}, Port: {:?}, Bytes: {}, Timestamp: {}",
+           ip, hostname, port, bytes, timestamp);
+   }
 
     pub fn stop_capture(&self) {
         *self.is_running.lock().unwrap() = false;

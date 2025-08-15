@@ -24,8 +24,8 @@ use crate::utils::{
         get_all_logs, get_available_network_dates, get_current_network_totals,
         get_health_status, get_lifetime_stats, get_network_adapters_command, get_network_history,
         get_network_stats, get_recent_logs_limited, greet, is_network_monitoring,
-        request_network_permissions, restore_network_backup, start_network_monitoring,
-        stop_network_monitoring, sync_time_data,
+        load_daily_summary_command, request_network_permissions, restore_network_backup,
+        start_network_monitoring, stop_network_monitoring, sync_time_data,
     },
     encryption::KEY,
     file_utils::{is_log_file_valid, load_backup},
@@ -198,7 +198,33 @@ fn main() {
         })
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(
-            tauri::generate_handler![greet, sync_time_data, aggregate_week_activity_logs, get_health_status, get_all_logs, get_recent_logs_limited, clear_all_logs, get_network_adapters_command, start_network_monitoring, stop_network_monitoring, get_network_stats, is_network_monitoring, get_network_history, get_available_network_dates, cleanup_old_network_data, create_network_backup, restore_network_backup, cleanup_network_backups, get_adapter_persistent_state, get_lifetime_stats, check_unexpected_shutdown, get_current_network_totals, request_network_permissions, check_network_permissions_status]
+            tauri::generate_handler![
+                greet,
+                sync_time_data,
+                aggregate_week_activity_logs,
+                get_health_status,
+                get_all_logs,
+                get_recent_logs_limited,
+                clear_all_logs,
+                get_network_adapters_command,
+                start_network_monitoring,
+                stop_network_monitoring,
+                get_network_stats,
+                is_network_monitoring,
+                get_network_history,
+                get_available_network_dates,
+                cleanup_old_network_data,
+                create_network_backup,
+                restore_network_backup,
+                cleanup_network_backups,
+                get_adapter_persistent_state,
+                get_lifetime_stats,
+                check_unexpected_shutdown,
+                get_current_network_totals,
+                request_network_permissions,
+                check_network_permissions_status,
+                load_daily_summary_command
+            ]
         )
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

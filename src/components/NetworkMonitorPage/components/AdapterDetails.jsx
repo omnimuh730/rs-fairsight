@@ -8,7 +8,8 @@ import MonitoringInterface from './MonitoringInterface';
 const AdapterDetails = ({ 
 	adapter, 
 	isMonitoring,
-	stats 
+	stats,
+	   todaySummary
 }) => {
 	if (!adapter) {
 		return (
@@ -55,9 +56,9 @@ const AdapterDetails = ({
 			)}
 
 			{!isMonitoring || !adapter.is_up ? (
-				<AdapterInfo adapter={adapter} />
+				<AdapterInfo adapter={adapter} todaySummary={todaySummary} />
 			) : (
-				<MonitoringInterface adapter={adapter} stats={stats} />
+				<MonitoringInterface adapter={adapter} stats={stats} todaySummary={todaySummary} />
 			)}
 		</Box>
 	);

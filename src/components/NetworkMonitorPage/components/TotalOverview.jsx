@@ -11,22 +11,19 @@ const TotalOverview = ({
 	networkStats, 
 	lifetimeStats,
 	unexpectedShutdown,
-	onRefreshLifetimeStats 
+	onRefreshLifetimeStats,
+	   todaySummary
 }) => {
 	const activeAdapters = adapters.filter(adapter => adapter.is_up && !adapter.is_loopback);
 	const totalAdapters = adapters.length;
 	const monitoringCount = Object.values(monitoringStates).filter(Boolean).length;
 	
-	// Calculate total stats across all monitored adapters
-	const totalStats = Object.values(networkStats).reduce((acc, stats) => {
-		if (!stats) return acc;
-		return {
-			totalIncoming: acc.totalIncoming + stats.total_incoming_bytes,
-			totalOutgoing: acc.totalOutgoing + stats.total_outgoing_bytes,
-			totalHosts: acc.totalHosts + stats.network_hosts.length,
-			totalServices: acc.totalServices + stats.services.length,
-		};
-	}, { totalIncoming: 0, totalOutgoing: 0, totalHosts: 0, totalServices: 0 });
+	const totalStats = {
+	       totalIncoming: todaySummary?.total_incoming_bytes || 0,
+	       totalOutgoing: todaySummary?.total_outgoing_bytes || 0,
+	       totalHosts: todaySummary?.unique_hosts || 0,
+	       totalServices: todaySummary?.unique_services || 0,
+	   };
 	
 	return (
 		<Box>
@@ -40,6 +37,7 @@ const TotalOverview = ({
 				unexpectedShutdown={unexpectedShutdown}
 				onRefreshLifetimeStats={onRefreshLifetimeStats}
 				adapters={adapters}
+				            todaySummary={todaySummary}
 			/>
 			
 			<Box sx={{ mb: 3 }}>

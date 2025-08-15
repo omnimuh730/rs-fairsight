@@ -118,30 +118,22 @@ impl NetworkStorageManager {
         traffic_data: &[crate::network_monitor::traffic_monitor::TrafficData],
         top_services: &[crate::network_monitor::traffic_monitor::ServiceInfo]
     ) -> Result<(), String> {
-        // Safety check: ensure no session duration exceeds 24 hours for a single day
-        const MAX_SECONDS_PER_DAY: u64 = 24 * 60 * 60; // 86400 seconds
+        const MAX_SECONDS_PER_DAY: u64 = 24 * 60 * 60;
         if duration > MAX_SECONDS_PER_DAY {
-            eprintln!("⚠️  Warning: Session duration ({}) exceeds 24 hours for single day. Capping at 24 hours.", duration);
-            // Cap the duration at 24 hours to prevent display issues
+            eprintln!("⚠️  Warning: Session duration ({}) exceeds 24 hours for a single day. Capping at 24 hours.", duration);
+            
             let capped_duration = MAX_SECONDS_PER_DAY;
-            // Adjust bytes proportionally
-            let ratio = capped_duration as f64 / duration as f64;
+            let ratio = if duration > 0 { capped_duration as f64 / duration as f64 } else { 0.0 };
+            
             let capped_in_bytes = (in_bytes as f64 * ratio).round() as u64;
             let capped_out_bytes = (out_bytes as f64 * ratio).round() as u64;
             let capped_in_packets = (in_packets as f64 * ratio).round() as u64;
             let capped_out_packets = (out_packets as f64 * ratio).round() as u64;
-            
+
             return self.save_day_part(
-                session,
-                start,
-                end,
-                capped_duration,
-                capped_in_bytes,
-                capped_out_bytes,
-                capped_in_packets,
-                capped_out_packets,
-                traffic_data,
-                top_services
+                session, start, end, capped_duration,
+                capped_in_bytes, capped_out_bytes, capped_in_packets, capped_out_packets,
+                traffic_data, top_services
             );
         }
 
@@ -245,7 +237,7 @@ fn seconds_between(a: chrono::DateTime<Local>, b: chrono::DateTime<Local>) -> u6
 }
 
 fn calculate_proportional_split(session: &NetworkSession, part_duration: u64) -> (u64, u64, u64, u64) {
-    let ratio = part_duration as f64 / session.duration as f64;
+    let ratio = if session.duration > 0 { part_duration as f64 / session.duration as f64 } else { 0.0 };
     let part_in_bytes = (session.total_incoming_bytes as f64 * ratio).round() as u64;
     let part_out_bytes = (session.total_outgoing_bytes as f64 * ratio).round() as u64;
     let part_in_packets = (session.total_incoming_packets as f64 * ratio).round() as u64;

@@ -17,6 +17,7 @@ import {
 } from '@mui/icons-material';
 
 import { useNetworkAdapters, useNetworkMonitoring } from './hooks/useNetworkMonitoring';
+import { useDailySummary } from './hooks/useDailySummary';
 import { getShortAdapterName } from './utils/formatters';
 import { getAdapterIcon } from './utils/adapterHelpers';
 import TotalOverview from './components/TotalOverview';
@@ -33,6 +34,7 @@ const NetworkMonitorPage = () => {
 		unexpectedShutdown,
 		refreshLifetimeStats,
 	} = useNetworkMonitoring(adapters);
+	   const { summary: todaySummary, loading: summaryLoading, error: summaryError } = useDailySummary(new Date());
 
 	const handleAdapterSelect = (adapterName) => {
 		const adapterIndex = adapters.findIndex(adapter => adapter.name === adapterName);
@@ -133,11 +135,12 @@ const NetworkMonitorPage = () => {
 									onRefreshLifetimeStats={refreshLifetimeStats}
 								/>
 							) : (
-								<AdapterDetails 
-									adapter={adapters[selectedTab - 1]} 
+								<AdapterDetails
+									adapter={adapters[selectedTab - 1]}
 									isMonitoring={monitoringStates[adapters[selectedTab - 1]?.name] || false}
 									stats={networkStats[adapters[selectedTab - 1]?.name]}
 									lifetimeState={lifetimeStats[adapters[selectedTab - 1]?.name]}
+								                            todaySummary={todaySummary}
 								/>
 							)}
 						</Box>
