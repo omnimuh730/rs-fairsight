@@ -37,11 +37,11 @@ use std::sync::atomic::{AtomicBool, Ordering};
 #[cfg(target_os = "macos")]
 use std::time::Duration;
 
-use crate::time_tracker::{get_current_time, EVENT_QUEUE_SENDER};
-use crate::health_monitor::report_activity;
+use crate::activity_monitor::{get_current_time, EVENT_QUEUE_SENDER};
+use crate::utils::health_monitor::report_activity;
 
 #[cfg(target_os = "windows")]
-use crate::app_state::send_message;
+use crate::utils::app_state::send_message;
 
 #[cfg(target_os = "macos")]
 static EVENT_TAP_RUNNING: AtomicBool = AtomicBool::new(false);

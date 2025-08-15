@@ -2,7 +2,7 @@ use std::fs;
 use std::path::Path;
 use std::io::Write;
 use chrono;
-use crate::encryption::decrypt_string;
+use crate::utils::encryption::decrypt_string;
 
 /// Atomically save a backup with timestamp
 pub fn save_backup(source_dir: &Path, target_dir: &Path, file_name: &str) -> std::io::Result<()> {

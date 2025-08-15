@@ -5,7 +5,7 @@ use std::io;
 use std::sync::Mutex;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use crate::file_utils::save_backup;
+use crate::utils::file_utils::save_backup;
 use super::types::{INACTIVE_TIME_PERIOD};
 use super::file_operations::{get_platform_directories, write_encrypted_message_to_file, should_create_backup, get_current_backup_count};
 

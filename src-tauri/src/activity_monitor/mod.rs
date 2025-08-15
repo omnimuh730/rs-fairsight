@@ -1,26 +1,28 @@
-use std::sync::mpsc::{self, Sender};
-use std::sync::Mutex;
+pub use self::{
+    aggregation::aggregate_log_results,
+    core::{get_current_time, initialize_time_tracking},
+    types::TimeUpdateMessage,
+};
 use once_cell::sync::Lazy;
+use std::sync::{
+    mpsc::{self, Sender},
+    Mutex,
+};
 
-pub mod types;
-pub mod core;
-pub mod file_operations;
-pub mod event_loop;
 pub mod aggregation;
-
-// Re-export the main functionality
-pub use types::TimeUpdateMessage;
-pub use core::{get_current_time, initialize_time_tracking};
-pub use aggregation::aggregate_log_results;
+pub mod core;
+pub mod event_loop;
+pub mod file_operations;
+pub mod types;
 
 // Global event queue sender
 pub static EVENT_QUEUE_SENDER: Lazy<Mutex<Sender<TimeUpdateMessage>>> = Lazy::new(|| {
-    let (sender, receiver) = mpsc::channel::<TimeUpdateMessage>();
+    let (tx, rx) = mpsc::channel::<TimeUpdateMessage>();
 
     // Spawn the worker thread
     std::thread::spawn(move || {
-        event_loop::event_processing_loop(receiver);
+        event_loop::event_processing_loop(rx);
     });
 
-    Mutex::new(sender)
+    Mutex::new(tx)
 });

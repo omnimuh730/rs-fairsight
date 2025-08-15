@@ -6,7 +6,7 @@ use tokio::task;
 
 use super::types::AdapterMonitor;
 use super::discovery::discover_adapters;
-use crate::state_manager::get_state_manager;
+use crate::network_monitor::state_manager::get_state_manager;
 
 pub struct NetworkEngine {
     adapters: Arc<RwLock<HashMap<String, AdapterMonitor>>>,

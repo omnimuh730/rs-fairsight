@@ -3,7 +3,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use dashmap::DashMap;
 use parking_lot::RwLock;
 
-use crate::persistent_state::get_persistent_state_manager;
+use crate::network_monitor::persistent_state::get_persistent_state_manager;
 use super::types::{MonitoringConfig, MonitoringStats, TrafficData, NetworkHost, ServiceInfo};
 use super::packet_processing::{create_packet_capture, process_real_packet};
 use super::session_manager::{save_periodic_session, save_final_session};

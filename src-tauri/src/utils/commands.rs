@@ -1,12 +1,14 @@
-use crate::time_tracker::aggregate_log_results;
-use crate::health_monitor::{HEALTH_MONITOR, get_comprehensive_system_health, SystemHealthStatus};
-use crate::logger::{get_logs, get_recent_logs, clear_logs, LogEntry};
-use crate::network_monitor::{get_network_adapters, get_monitoring_adapters, NetworkAdapter};
-// use crate::network_engine::{get_network_engine, start_network_engine, stop_network_engine};
-// use crate::state_manager::{get_state_manager, AdapterMetrics, SystemState};
-use crate::traffic_monitor::{get_or_create_monitor, MonitoringStats};
-use crate::network_storage::{NETWORK_STORAGE, DailyNetworkSummary};
-use crate::persistent_state::{get_persistent_state_manager, AdapterPersistentState};
+use crate::activity_monitor::aggregation::aggregate_log_results;
+use crate::network_monitor::{
+    network_monitor::{get_network_adapters, get_monitoring_adapters, NetworkAdapter},
+    network_storage::{NETWORK_STORAGE, DailyNetworkSummary},
+    persistent_state::{get_persistent_state_manager, AdapterPersistentState},
+    traffic_monitor::{get_or_create_monitor, MonitoringStats},
+};
+use crate::utils::{
+    health_monitor::{HEALTH_MONITOR, get_comprehensive_system_health, SystemHealthStatus},
+    logger::{get_logs, get_recent_logs, clear_logs, LogEntry},
+};
 
 #[tauri::command]
 pub fn greet(name: &str) -> String {
@@ -267,8 +269,8 @@ pub fn get_comprehensive_network_stats() -> Result<MonitoringStats, String> {
         services: Vec::new(),
     };
     
-    let mut all_hosts: std::collections::HashMap<String, crate::traffic_monitor::NetworkHost> = std::collections::HashMap::new();
-    let mut all_services: std::collections::HashMap<String, crate::traffic_monitor::ServiceInfo> = std::collections::HashMap::new();
+    let mut all_hosts: std::collections::HashMap<String, crate::network_monitor::traffic_monitor::NetworkHost> = std::collections::HashMap::new();
+    let mut all_services: std::collections::HashMap<String, crate::network_monitor::traffic_monitor::ServiceInfo> = std::collections::HashMap::new();
     let mut max_duration = 0u64;
     
     for adapter_name in adapters {
@@ -497,7 +499,7 @@ pub fn get_current_network_totals() -> Result<std::collections::HashMap<String, 
     // Get today's session data
     let today = chrono::Local::now().format("%Y-%m-%d").to_string();
     let today_sessions = NETWORK_STORAGE.load_daily_summary(&today).unwrap_or_else(|_| {
-        crate::network_storage::DailyNetworkSummary {
+        crate::network_monitor::network_storage::DailyNetworkSummary {
             date: today.clone(),
             sessions: Vec::new(),
             total_incoming_bytes: 0,

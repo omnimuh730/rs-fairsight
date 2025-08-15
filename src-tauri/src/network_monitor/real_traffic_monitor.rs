@@ -48,12 +48,16 @@ impl RealTrafficMonitor {
     }
 
     pub async fn monitor_packets(&mut self) -> Result<(), String> {
-        let Some(ref mut cap) = self.capture else {
+        if self.capture.is_none() {
             return Err("Capture not initialized".to_string());
-        };
+        }
 
         while *self.is_running.lock().unwrap() {
-            match cap.next_packet() {
+            let mut cap = self.capture.take().unwrap();
+            let result = cap.next_packet();
+            self.capture = Some(cap);
+
+            match result {
                 Ok(packet) => {
                     // Parse packet headers (similar to sniffnet's approach)
                     if let Ok(headers) = LaxPacketHeaders::from_ethernet(&packet.data) {
@@ -73,14 +77,14 @@ impl RealTrafficMonitor {
         Ok(())
     }
 
-    async fn process_packet(&self, headers: LaxPacketHeaders, packet_size: usize) {
+    async fn process_packet(&self, headers: LaxPacketHeaders<'_>, packet_size: usize) {
         // Extract IP addresses from headers
         let (source_ip, dest_ip) = match (&headers.net, &headers.transport) {
             (Some(etherparse::NetHeaders::Ipv4(ipv4, _)), _) => {
-                (IpAddr::V4(ipv4.source), IpAddr::V4(ipv4.destination))
+                (IpAddr::V4(ipv4.source.into()), IpAddr::V4(ipv4.destination.into()))
             }
             (Some(etherparse::NetHeaders::Ipv6(ipv6, _)), _) => {
-                (IpAddr::V6(ipv6.source), IpAddr::V6(ipv6.destination))
+                (IpAddr::V6(ipv6.source.into()), IpAddr::V6(ipv6.destination.into()))
             }
             _ => return, // Skip non-IP packets
         };
@@ -103,7 +107,10 @@ impl RealTrafficMonitor {
 
     async fn resolve_and_store_host(&self, ip: IpAddr, port: Option<u16>, bytes: usize) {
         // Skip local/loopback addresses
-        if ip.is_loopback() || ip.is_private() {
+        if ip.is_loopback() || match ip {
+            IpAddr::V4(ipv4) => ipv4.is_private(),
+            IpAddr::V6(_) => false,
+        } {
             return;
         }
 

@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use crate::traffic_monitor::{TrafficData, NetworkHost, ServiceInfo};
+use crate::network_monitor::traffic_monitor::{TrafficData, NetworkHost, ServiceInfo};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NetworkSession {

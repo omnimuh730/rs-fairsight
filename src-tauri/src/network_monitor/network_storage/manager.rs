@@ -115,8 +115,8 @@ impl NetworkStorageManager {
         out_bytes: u64,
         in_packets: u64,
         out_packets: u64,
-        traffic_data: &[crate::traffic_monitor::TrafficData],
-        top_services: &[crate::traffic_monitor::ServiceInfo]
+        traffic_data: &[crate::network_monitor::traffic_monitor::TrafficData],
+        top_services: &[crate::network_monitor::traffic_monitor::ServiceInfo]
     ) -> Result<(), String> {
         // Safety check: ensure no session duration exceeds 24 hours for a single day
         const MAX_SECONDS_PER_DAY: u64 = 24 * 60 * 60; // 86400 seconds

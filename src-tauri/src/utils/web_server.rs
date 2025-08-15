@@ -12,7 +12,7 @@ use axum::serve;
 use tokio::net::TcpListener;
 use tower_http::cors::{Any, CorsLayer};
 
-use crate::commands::aggregate_week_activity_logs;
+use crate::utils::commands::aggregate_week_activity_logs;
 
 // Define a struct to hold the query parameters
 #[derive(Deserialize, Debug)]

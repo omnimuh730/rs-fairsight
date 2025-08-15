@@ -2,8 +2,8 @@ use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
 use parking_lot::RwLock;
 
-use crate::network_storage::{NETWORK_STORAGE, NetworkSession};
-use crate::persistent_state::get_persistent_state_manager;
+use crate::network_monitor::network_storage::{NETWORK_STORAGE, NetworkSession};
+use crate::network_monitor::persistent_state::get_persistent_state_manager;
 use super::types::{MonitoringStats, TrafficData};
 
 pub async fn save_periodic_session(

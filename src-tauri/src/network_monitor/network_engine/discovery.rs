@@ -6,7 +6,7 @@ use tokio::task;
 
 use super::types::AdapterMonitor;
 use super::monitoring::start_adapter_monitoring;
-use crate::state_manager::get_state_manager;
+use crate::network_monitor::state_manager::get_state_manager;
 
 pub async fn discover_adapters(
     adapters: &Arc<RwLock<HashMap<String, AdapterMonitor>>>,

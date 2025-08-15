@@ -79,34 +79,34 @@ pub fn clear_logs() {
 #[macro_export]
 macro_rules! log_info {
     ($module:expr, $($arg:tt)*) => {
-        $crate::logger::log_message($crate::logger::LogLevel::Info, $module, &format!($($arg)*))
+        $crate::utils::logger::log_message($crate::utils::logger::LogLevel::Info, $module, &format!($($arg)*))
     };
 }
 
 #[macro_export]
 macro_rules! log_warning {
     ($module:expr, $($arg:tt)*) => {
-        $crate::logger::log_message($crate::logger::LogLevel::Warning, $module, &format!($($arg)*))
+        $crate::utils::logger::log_message($crate::utils::logger::LogLevel::Warning, $module, &format!($($arg)*))
     };
 }
 
 #[macro_export]
 macro_rules! log_error {
     ($module:expr, $($arg:tt)*) => {
-        $crate::logger::log_message($crate::logger::LogLevel::Error, $module, &format!($($arg)*))
+        $crate::utils::logger::log_message($crate::utils::logger::LogLevel::Error, $module, &format!($($arg)*))
     };
 }
 
 #[macro_export]
 macro_rules! log_debug {
     ($module:expr, $($arg:tt)*) => {
-        $crate::logger::log_message($crate::logger::LogLevel::Debug, $module, &format!($($arg)*))
+        $crate::utils::logger::log_message($crate::utils::logger::LogLevel::Debug, $module, &format!($($arg)*))
     };
 }
 
 #[macro_export]
 macro_rules! log_activity {
     ($module:expr, $($arg:tt)*) => {
-        $crate::logger::log_message($crate::logger::LogLevel::Activity, $module, &format!($($arg)*))
+        $crate::utils::logger::log_message($crate::utils::logger::LogLevel::Activity, $module, &format!($($arg)*))
     };
 }

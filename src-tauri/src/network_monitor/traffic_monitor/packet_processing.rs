@@ -122,7 +122,7 @@ pub async fn process_real_packet(
         register_packet(packet_signature, adapter_name.to_string());
 
         // Report network activity to health monitor
-        crate::health_monitor::report_network_activity();
+        crate::utils::health_monitor::report_network_activity();
 
         let packet_size = packet.header.len as u64;
         let is_outgoing = is_outgoing_traffic(&src_ip);

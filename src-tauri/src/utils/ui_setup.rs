@@ -11,7 +11,7 @@ use crate::macos_utils::{set_activation_policy, activate_app};
 #[cfg(target_os = "macos")]
 use cocoa::appkit::NSApplicationActivationPolicy;
 
-use crate::app_state::set_app_handle;
+use crate::utils::app_state::set_app_handle;
 
 pub fn setup_tray_and_window_events(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     set_app_handle(app.handle());

@@ -5,7 +5,7 @@ use std::thread;
 use serde::{Deserialize, Serialize};
 
 #[cfg(target_os = "windows")]
-use crate::app_state::send_message;
+use crate::utils::app_state::send_message;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SystemHealthStatus {
@@ -138,8 +138,8 @@ impl HealthMonitor {
 
     fn get_network_monitoring_status(&self) -> NetworkMonitoringStatus {
         // Import here to avoid circular dependencies
-        use crate::traffic_monitor::{TRAFFIC_MONITORS, is_comprehensive_monitoring_running};
-        use crate::network_monitor::get_network_adapters;
+        use crate::network_monitor::traffic_monitor::{TRAFFIC_MONITORS, is_comprehensive_monitoring_running};
+        use crate::network_monitor::network_monitor::get_network_adapters;
 
         let current_time = SystemTime::now()
             .duration_since(UNIX_EPOCH)

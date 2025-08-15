@@ -3,41 +3,37 @@
 
 #![cfg_attr(all(not(debug_assertions), target_os = "windows"), windows_subsystem = "windows")]
 
-mod encryption;
-mod file_utils;
-mod hooks;
-mod time_tracker;
-mod web_server;
-mod commands;
-mod app_state;
-mod ui_setup;
-mod health_monitor;
-mod logger;
+mod activity_monitor;
 mod network_monitor;
-mod traffic_monitor;
-mod network_storage;
-mod persistent_state;
-#[cfg(target_os = "macos")]
-mod macos_utils;
-#[cfg(target_os = "windows")]
-mod dll_loader;
+mod utils;
 
 use chrono::Local;
 #[cfg(target_os = "windows")]
 use std::path::Path;
 use tauri::Manager;
 
-use crate::encryption::KEY;
-use crate::file_utils::{is_log_file_valid, load_backup};
-use crate::hooks::setup_hooks;
-use crate::time_tracker::initialize_time_tracking;
-use crate::network_monitor::get_default_network_adapter;
-use crate::traffic_monitor::get_or_create_monitor;
-use crate::web_server::start_web_server;
-use crate::commands::{greet, sync_time_data, aggregate_week_activity_logs, get_health_status, get_all_logs, get_recent_logs_limited, clear_all_logs, get_network_adapters_command, start_network_monitoring, stop_network_monitoring, get_network_stats, is_network_monitoring, get_network_history, get_available_network_dates, cleanup_old_network_data, create_network_backup, restore_network_backup, cleanup_network_backups, get_adapter_persistent_state, get_lifetime_stats, check_unexpected_shutdown, get_current_network_totals, request_network_permissions, check_network_permissions_status};
-use crate::ui_setup::{setup_tray_and_window_events, handle_window_event};
-use crate::health_monitor::initialize_health_monitoring;
-use crate::persistent_state::get_persistent_state_manager;
+use crate::activity_monitor::initialize_time_tracking;
+use crate::network_monitor::{
+    persistent_state::get_persistent_state_manager,
+};
+use crate::utils::{
+    commands::{
+        aggregate_week_activity_logs, check_network_permissions_status,
+        check_unexpected_shutdown, clear_all_logs, cleanup_network_backups,
+        cleanup_old_network_data, create_network_backup, get_adapter_persistent_state,
+        get_all_logs, get_available_network_dates, get_current_network_totals,
+        get_health_status, get_lifetime_stats, get_network_adapters_command, get_network_history,
+        get_network_stats, get_recent_logs_limited, greet, is_network_monitoring,
+        request_network_permissions, restore_network_backup, start_network_monitoring,
+        stop_network_monitoring, sync_time_data,
+    },
+    encryption::KEY,
+    file_utils::{is_log_file_valid, load_backup},
+    health_monitor::initialize_health_monitoring,
+    hooks::setup_hooks,
+    ui_setup::{handle_window_event, setup_tray_and_window_events},
+    web_server::start_web_server,
+};
 
 // Global flag to prevent duplicate auto-start attempts
 static AUTO_START_COMPLETED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
@@ -51,7 +47,7 @@ fn main() {
     // On Windows, try to load the bundled Npcap DLLs
     #[cfg(target_os = "windows")]
     {
-        if let Err(e) = crate::dll_loader::ensure_npcap_dlls_loaded() {
+        if let Err(e) = crate::utils::dll_loader::ensure_npcap_dlls_loaded() {
             crate::log_error!("main", "Failed to load Npcap DLLs: {}", e);
         }
     }
@@ -159,7 +155,7 @@ fn main() {
                 }
 
                 // Start comprehensive monitoring on all suitable adapters
-                match crate::commands::start_comprehensive_monitoring().await {
+                match crate::utils::commands::start_comprehensive_monitoring().await {
                     Ok(msg) => println!("✅ Auto-started comprehensive network monitoring: {}", msg),
                     Err(e) => eprintln!("❌ Failed to auto-start comprehensive monitoring: {}", e),
                 }

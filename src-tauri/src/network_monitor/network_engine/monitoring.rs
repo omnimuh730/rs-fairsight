@@ -1,11 +1,11 @@
-use std::sync::{Arc, atomic::{AtomicBool, Ordering}};
+use std::sync::{Arc, atomic::{AtomicBool, Ordering}, Mutex};
 use std::time::Duration;
 use tokio::task;
 use rand::Rng;
 
 use super::packet_capture::{open_packet_capture, parse_packet, cleanup_packet_signatures};
 use super::types::PacketInfo;
-use crate::state_manager::get_state_manager;
+use crate::network_monitor::state_manager::get_state_manager;
 
 pub async fn start_adapter_monitoring(
     adapter_name: String,
@@ -18,7 +18,7 @@ pub async fn start_adapter_monitoring(
     let capture = open_packet_capture(&adapter_name)?;
 
     let task = task::spawn(async move {
-        let mut cap = capture;
+        let cap = Arc::new(Mutex::new(capture));
         let mut stats_update_interval = tokio::time::interval(Duration::from_secs(1));
         let mut cleanup_counter = 0u64;
 
@@ -39,11 +39,13 @@ pub async fn start_adapter_monitoring(
                 }
                 
                 packet_result = tokio::task::spawn_blocking({
-                    let adapter_name = adapter_name.clone();
+                    let cap_clone = Arc::clone(&cap);
+                    let adapter_name_clone = adapter_name.clone();
                     move || -> Result<Option<PacketInfo>, String> {
-                        match cap.next_packet() {
+                        let mut cap_lock = cap_clone.lock().map_err(|e| format!("Mutex lock error: {}", e))?;
+                        match cap_lock.next_packet() {
                             Ok(packet) => {
-                                match parse_packet(packet, &adapter_name) {
+                                match parse_packet(packet, &adapter_name_clone) {
                                     Ok(Some(packet_info)) => Ok(Some(packet_info)),
                                     Ok(None) => Ok(None), // Duplicate or filtered
                                     Err(e) => {

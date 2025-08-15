@@ -22,13 +22,6 @@ objc = "0.2"   # Use the latest compatible version
 foreign-types-shared = "0.3"  # Likely only needed with core-foundation/core-graphics
 dirs = "5.0"
 
-[lib]
-# The `_lib` suffix may seem redundant but it is necessary
-# to make the lib name unique and wouldn't conflict with the bin name.
-# This seems to be only an issue on Windows, see https://github.com/rust-lang/cargo/issues/8519
-name = "rs_fairsight_lib"
-crate-type = ["staticlib", "cdylib", "rlib"]
-
 [build-dependencies]
 tauri-build = { version = "2" }
 chrono = { version = "0.4", features = ["serde"] }

@@ -34,7 +34,7 @@ pub fn open_packet_capture(adapter_name: &str) -> Result<Capture<pcap::Active>, 
     Ok(capture)
 }
 
-pub fn parse_packet(packet: pcap::Packet, adapter_name: &str) -> Result<Option<PacketInfo>, String> {
+pub fn parse_packet(packet: pcap::Packet, _adapter_name: &str) -> Result<Option<PacketInfo>, String> {
     let headers = LaxPacketHeaders::from_ethernet(&packet.data)
         .map_err(|e| format!("Failed to parse packet headers: {}", e))?;
 

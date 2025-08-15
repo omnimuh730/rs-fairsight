@@ -10,7 +10,7 @@ use dirs;
 #[cfg(target_os = "macos")]
 use std::io;
 
-use crate::encryption::{decrypt_string, KEY};
+use crate::utils::encryption::{decrypt_string, KEY};
 
 pub fn aggregate_log_results(file_name: &str) -> Result<String, Box<dyn std::error::Error>> {
     let log_dir;
