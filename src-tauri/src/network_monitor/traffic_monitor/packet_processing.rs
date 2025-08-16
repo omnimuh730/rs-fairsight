@@ -5,11 +5,13 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use std::sync::Arc;
 use dashmap::DashMap;
 use parking_lot::RwLock;
+use chrono::{Local, Datelike};
 
 use super::types::{NetworkHost, ServiceInfo, MonitoringStats, TrafficData};
 use super::deduplication::{create_packet_signature, is_duplicate_packet, register_packet};
 use super::service_analysis::process_service_from_packet;
 use super::host_analysis::process_host_from_packet;
+use super::monitor::TRAFFIC_MONITORS;
 
 pub fn create_packet_capture(adapter_name: &str) -> Option<Capture<pcap::Active>> {
     crate::log_info!("packet_capture", "Attempting to create packet capture for adapter: '{}'", adapter_name);
@@ -73,7 +75,24 @@ pub async fn process_real_packet(
     stats: &Arc<RwLock<MonitoringStats>>,
     start_time: u64,
     adapter_name: &str,
+    last_known_date: &Arc<RwLock<Option<u32>>>,
 ) {
+    let today = Local::now().ordinal();
+    let needs_reset = {
+        let mut last_date = last_known_date.write();
+        let is_new_day = last_date.map_or(true, |d| d != today);
+        if is_new_day {
+            *last_date = Some(today);
+        }
+        is_new_day
+    };
+
+    if needs_reset {
+        if let Some(monitor) = TRAFFIC_MONITORS.get(adapter_name) {
+            monitor.reset_daily_stats();
+        }
+    }
+
     if let Ok(headers) = LaxPacketHeaders::from_ethernet(&packet.data) {
         let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
 
@@ -103,7 +122,6 @@ pub async fn process_real_packet(
             _ => (0, 0, "Other".to_string()),
         };
 
-        // Create packet signature for deduplication
         let packet_signature = create_packet_signature(
             &src_ip.to_string(),
             &dst_ip.to_string(),
@@ -113,33 +131,26 @@ pub async fn process_real_packet(
             packet.header.ts.tv_usec as u64,
         );
 
-        // Skip if this is a duplicate packet
         if is_duplicate_packet(&packet_signature) {
             return;
         }
 
-        // Register this packet to prevent future duplicates
         register_packet(packet_signature, adapter_name.to_string());
 
-        // Report network activity to health monitor
         crate::utils::health_monitor::report_network_activity();
 
         let packet_size = packet.header.len as u64;
         let is_outgoing = is_outgoing_traffic(&src_ip);
 
-        // Update hosts with enhanced analysis (DNS, GeoIP, domains)
         let target_ip = if is_outgoing { &dst_ip } else { &src_ip };
         process_host_from_packet(target_ip, packet_size, is_outgoing, hosts, now).await;
 
-        // Update services
         if dst_port != 0 {
             process_service_from_packet(&protocol, dst_port, packet_size, services);
         }
 
-        // Update overall stats
         update_overall_stats(stats, packet_size, is_outgoing).await;
 
-        // Update traffic history
         update_traffic_history(traffic_history, stats, start_time, now).await;
     }
 }
@@ -177,7 +188,6 @@ async fn update_traffic_history(
 
     if let Ok(mut history) = traffic_history.lock() {
         history.push(current_data);
-        // Keep only recent history (last 3600 entries)
         if history.len() > 3600 {
             history.remove(0);
         }
@@ -188,22 +198,20 @@ fn is_outgoing_traffic(ip: &IpAddr) -> bool {
     match ip {
         IpAddr::V4(ipv4) => {
             let octets = ipv4.octets();
-            // Local/private address ranges indicate outgoing traffic
             matches!(octets,
-                [10, ..] |                    // 10.0.0.0/8
-                [172, 16..=31, ..] |          // 172.16.0.0/12
-                [192, 168, ..] |              // 192.168.0.0/16
-                [169, 254, ..] |              // 169.254.0.0/16 (link-local)
-                [127, ..]                     // 127.0.0.0/8 (loopback)
+                [10, ..] |
+                [172, 16..=31, ..] |
+                [192, 168, ..] |
+                [169, 254, ..] |
+                [127, ..]
             )
         }
         IpAddr::V6(ipv6) => {
             let segments = ipv6.segments();
-            // IPv6 local ranges
-            segments[0] == 0xfe80 ||          // Link-local
-            segments[0] == 0xfc00 ||          // Unique local
-            segments[0] == 0xfd00 ||          // Unique local
-            *ipv6 == std::net::Ipv6Addr::LOCALHOST     // Loopback
+            segments[0] == 0xfe80 ||
+            segments[0] == 0xfc00 ||
+            segments[0] == 0xfd00 ||
+            *ipv6 == std::net::Ipv6Addr::LOCALHOST
         }
     }
 }

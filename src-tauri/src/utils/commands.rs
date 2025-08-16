@@ -97,14 +97,13 @@ pub fn get_monitoring_adapters_command() -> Result<Vec<String>, String> {
 pub async fn start_network_monitoring(adapter_name: String) -> Result<String, String> {
     #[cfg(target_os = "macos")]
     {
-        // Check if we have network access permissions on macOS
         if let Err(permission_error) = check_network_permissions().await {
             return Err(format!("Network permissions required: {}", permission_error));
         }
     }
     
     let monitor = get_or_create_monitor(&adapter_name);
-    match monitor.start_monitoring().await {
+    match monitor.start_monitoring() {
         Ok(_) => Ok(format!("Started monitoring adapter: {}", adapter_name)),
         Err(e) => Err(e),
     }
@@ -114,7 +113,6 @@ pub async fn start_network_monitoring(adapter_name: String) -> Result<String, St
 pub async fn start_comprehensive_monitoring() -> Result<String, String> {
     #[cfg(target_os = "macos")]
     {
-        // Check if we have network access permissions on macOS
         if let Err(permission_error) = check_network_permissions().await {
             return Err(format!("Network permissions required: {}", permission_error));
         }
@@ -133,7 +131,7 @@ pub async fn start_comprehensive_monitoring() -> Result<String, String> {
     
     for adapter_name in adapters {
         let monitor = get_or_create_monitor(&adapter_name);
-        match monitor.start_monitoring().await {
+        match monitor.start_monitoring() {
             Ok(_) => {
                 started_adapters.push(adapter_name);
             }
@@ -190,7 +188,6 @@ pub fn stop_comprehensive_monitoring() -> Result<String, String> {
 pub async fn refresh_and_restart_monitoring() -> Result<String, String> {
     #[cfg(target_os = "macos")]
     {
-        // Check if we have network access permissions on macOS
         if let Err(permission_error) = check_network_permissions().await {
             return Err(format!("Network permissions required: {}", permission_error));
         }
@@ -198,13 +195,10 @@ pub async fn refresh_and_restart_monitoring() -> Result<String, String> {
     
     println!("🔄 Refreshing network adapters and restarting monitoring...");
     
-    // Stop current monitoring
     let _ = stop_comprehensive_monitoring();
     
-    // Wait a moment for cleanup
     tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
     
-    // Get fresh adapter list (this will filter out problematic adapters)
     let fresh_adapters = get_monitoring_adapters()?;
     
     if fresh_adapters.is_empty() {
@@ -213,18 +207,16 @@ pub async fn refresh_and_restart_monitoring() -> Result<String, String> {
     
     println!("🆕 Found {} suitable adapters after refresh: {:?}", fresh_adapters.len(), fresh_adapters);
     
-    // Start monitoring on fresh adapters
     let mut started_adapters = Vec::new();
     let mut failed_adapters = Vec::new();
     
     for adapter_name in fresh_adapters {
         let monitor = get_or_create_monitor(&adapter_name);
-        match monitor.start_monitoring().await {
+        match monitor.start_monitoring() {
             Ok(_) => {
                 started_adapters.push(adapter_name);
             }
             Err(e) => {
-                // Skip adapters that fail to start (likely unsupported)
                 println!("⏭️  Skipping problematic adapter {}: {}", adapter_name, e);
                 failed_adapters.push(format!("{}: {}", adapter_name, e));
             }
@@ -278,18 +270,15 @@ pub fn get_comprehensive_network_stats() -> Result<MonitoringStats, String> {
         if monitor.is_monitoring() {
             let stats = monitor.get_stats();
             
-            // Aggregate totals
             combined_stats.total_incoming_bytes += stats.total_incoming_bytes;
             combined_stats.total_outgoing_bytes += stats.total_outgoing_bytes;
             combined_stats.total_incoming_packets += stats.total_incoming_packets;
             combined_stats.total_outgoing_packets += stats.total_outgoing_packets;
             
-            // Track maximum monitoring duration
             if stats.monitoring_duration > max_duration {
                 max_duration = stats.monitoring_duration;
             }
             
-            // Merge hosts (sum traffic for same IP)
             for host in stats.network_hosts {
                 if let Some(existing_host) = all_hosts.get_mut(&host.ip) {
                     existing_host.incoming_bytes += host.incoming_bytes;
@@ -307,7 +296,6 @@ pub fn get_comprehensive_network_stats() -> Result<MonitoringStats, String> {
                 }
             }
             
-            // Merge services (sum traffic for same protocol/port)
             for service in stats.services {
                 let service_key = format!("{}:{}", service.protocol, service.port);
                 if let Some(existing_service) = all_services.get_mut(&service_key) {
@@ -324,17 +312,14 @@ pub fn get_comprehensive_network_stats() -> Result<MonitoringStats, String> {
     combined_stats.network_hosts = all_hosts.into_values().collect();
     combined_stats.services = all_services.into_values().collect();
     
-    // Sort hosts by total bytes (descending)
     combined_stats.network_hosts.sort_by(|a, b| {
         let total_a = a.incoming_bytes + a.outgoing_bytes;
         let total_b = b.incoming_bytes + b.outgoing_bytes;
         total_b.cmp(&total_a)
     });
     
-    // Sort services by bytes (descending)
     combined_stats.services.sort_by(|a, b| b.bytes.cmp(&a.bytes));
     
-    // Limit results
     combined_stats.network_hosts.truncate(1000);
     combined_stats.services.truncate(100);
     
@@ -379,13 +364,11 @@ pub fn get_network_history(start_date: String, end_date: String) -> Result<Vec<D
         Ok(mut data) => {
             println!("📊 Network history requested: {} to {}", start_date, end_date);
             
-            // Also try to get today's data if not already included
             let today = chrono::Local::now().format("%Y-%m-%d").to_string();
             let tomorrow = chrono::Local::now().checked_add_signed(chrono::Duration::days(1))
                 .unwrap_or_else(|| chrono::Local::now())
                 .format("%Y-%m-%d").to_string();
             
-            // Check if we need to add today's or tomorrow's data (timezone handling)
             let dates_in_data: std::collections::HashSet<String> = data.iter().map(|d| d.date.clone()).collect();
             
             for check_date in [today.clone(), tomorrow] {
@@ -397,29 +380,25 @@ pub fn get_network_history(start_date: String, end_date: String) -> Result<Vec<D
                 }
             }
             
-            // Sort by date
             data.sort_by(|a, b| a.date.cmp(&b.date));
             
             println!("📊 Returning {} daily summaries for dates: {:?}", 
                 data.len(), 
                 data.iter().map(|d| &d.date).collect::<Vec<_>>());
             
-            // Enhance the data with persistent state information
             let persistent_states = get_persistent_state_manager().get_all_adapter_states().unwrap_or_default();
             
             for summary in &mut data {
-                // Add lifetime stats context to each daily summary
                 let mut daily_lifetime_incoming = 0u64;
                 let mut daily_lifetime_outgoing = 0u64;
                 
                 for (_adapter_name, state) in &persistent_states {
-                    // Check if this adapter had activity on this date
                     if let Some(first_time) = state.first_recorded_time {
                         let summary_timestamp = chrono::NaiveDate::parse_from_str(&summary.date, "%Y-%m-%d")
                             .map(|d| chrono::TimeZone::from_local_datetime(&chrono::Local, &d.and_hms_opt(0, 0, 0).unwrap()).unwrap().timestamp() as u64)
                             .unwrap_or(0);
                         
-                        if first_time <= summary_timestamp + 86400 { // If adapter was active by end of this day
+                        if first_time <= summary_timestamp + 86400 { 
                             daily_lifetime_incoming += state.lifetime_incoming_bytes;
                             daily_lifetime_outgoing += state.lifetime_outgoing_bytes;
                         }
@@ -499,10 +478,8 @@ pub fn check_unexpected_shutdown() -> Result<bool, String> {
 pub fn get_current_network_totals() -> Result<std::collections::HashMap<String, serde_json::Value>, String> {
     let mut totals = std::collections::HashMap::new();
     
-    // Get persistent state totals (lifetime/cumulative)
     let persistent_states = get_persistent_state_manager().get_all_adapter_states()?;
     
-    // Get today's session data
     let today = chrono::Local::now().format("%Y-%m-%d").to_string();
     let today_sessions = NETWORK_STORAGE.load_daily_summary(&today).unwrap_or_else(|_| {
         crate::network_monitor::network_storage::DailyNetworkSummary {
@@ -516,23 +493,18 @@ pub fn get_current_network_totals() -> Result<std::collections::HashMap<String, 
         }
     });
     
-    // Structure the persistent state to match frontend expectations
     let persistent_state_structure = serde_json::json!({
         "persistent_state": persistent_states,
         "last_shutdown_time": get_persistent_state_manager().get_last_shutdown_time().unwrap_or(0),
         "app_version": "1.0.0"
     });
     
-    // Combine the data
     totals.insert("persistent_state".to_string(), persistent_state_structure);
     totals.insert("today_sessions".to_string(), serde_json::to_value(&today_sessions).unwrap());
     
-    // Calculate today's real-time data (not cumulative)
-    // For real-time monitoring display, we want today's data, not lifetime totals
     let today_incoming = today_sessions.total_incoming_bytes;
     let today_outgoing = today_sessions.total_outgoing_bytes;
     
-    // Calculate cumulative totals for reference (but not for display)
     let mut cumulative_incoming = 0u64;
     let mut cumulative_outgoing = 0u64;
     for state in persistent_states.values() {
@@ -541,12 +513,10 @@ pub fn get_current_network_totals() -> Result<std::collections::HashMap<String, 
     }
     
     let combined = serde_json::json!({
-        // Real-time monitoring should show today's data, not cumulative
         "total_incoming_bytes": today_incoming,
         "total_outgoing_bytes": today_outgoing,
         "session_incoming_bytes": today_sessions.total_incoming_bytes,
         "session_outgoing_bytes": today_sessions.total_outgoing_bytes,
-        // Include cumulative data for reference (used by frontend processing)
         "cumulative_incoming_bytes": cumulative_incoming,
         "cumulative_outgoing_bytes": cumulative_outgoing,
         "active_adapters": persistent_states.len(),
@@ -562,14 +532,11 @@ pub fn get_current_network_totals() -> Result<std::collections::HashMap<String, 
     Ok(totals)
 }
 
-// macOS Network Permission Functions
 #[cfg(target_os = "macos")]
 async fn check_network_permissions() -> Result<(), String> {
     
     crate::log_info!("macos_permissions", "Checking macOS network monitoring permissions via tcpdump...");
     
-    // Try to create a test pcap handle to check permissions
-    // This will trigger the system permission dialog if needed
     use std::process::Command;
 
     match Command::new("tcpdump")
@@ -614,11 +581,9 @@ pub async fn request_network_permissions() -> Result<String, String> {
         match check_bpf_permissions() {
             Ok(_) => Ok("Network permissions are already granted.".to_string()),
             Err(_) => {
-                // Try to open System Preferences automatically
                 match request_network_permissions() {
                     Ok(_) => Ok("Please grant network permissions in System Preferences, then restart the application.".to_string()),
                     Err(_) => {
-                        // Fallback to manual instructions
                         Ok(get_permission_instructions())
                     }
                 }
@@ -641,6 +606,6 @@ pub async fn check_network_permissions_status() -> bool {
     
     #[cfg(not(target_os = "macos"))]
     {
-        true // Always allow on other platforms
+        true
     }
 }
