@@ -47,3 +47,4 @@ parking_lot = "0.12" # For better mutexes
 dashmap = "6.1"      # For concurrent hashmaps
 dns-lookup = "2.0"   # For reverse DNS resolution
 etherparse = "0.15"  # For packet parsing
+maxminddb = "0.26.0"

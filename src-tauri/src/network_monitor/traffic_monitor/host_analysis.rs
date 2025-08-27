@@ -1,6 +1,7 @@
 use std::net::IpAddr;
 use std::sync::Arc;
 use dashmap::DashMap;
+use maxminddb::Reader;
 use dns_lookup::lookup_addr;
 
 use super::types::NetworkHost;
@@ -72,20 +73,26 @@ pub async fn process_host_from_packet(
                 }
             }
 
-            // GeoIP lookup
-            if let Some((country, country_code, asn)) = lookup_geolocation(&ip_clone).await {
-                if let Some(mut host) = hosts_clone.get_mut(&ip_str_clone) {
-                    if host.country.is_none() {
-                        host.country = country;
-                    }
-                    if host.country_code.is_none() {
-                        host.country_code = country_code;
-                    }
-                    if host.asn.is_none() {
-                        host.asn = asn;
-                    }
-                }
-            }
+            // TODO: Initialize and pass the MMDB reader (e.g., MaxMind GeoLite2 Country and ASN databases)
+            // Example placeholder for MMDB lookup:
+            // if let Ok(reader) = Reader::open("path/to/GeoLite2-Country.mmdb") {
+            //     if let Ok(country_lookup) = reader.lookup::<maxminddb::geoip2::Country>(&ip_clone) {
+            //         if let Some(mut host) = hosts_clone.get_mut(&ip_str_clone) {
+            //             host.country = country_lookup.country.and_then(|c| c.names.and_then(|n| n.get("en").map(|s| s.to_string())));
+            //             host.country_code = country_lookup.country.and_then(|c| c.iso_code.map(|s| s.to_string()));
+            //         }
+            //     }
+            // }
+            // if let Ok(reader) = Reader::open("path/to/GeoLite2-ASN.mmdb") {
+            //      if let Ok(asn_lookup) = reader.lookup::<maxminddb::geoip2::Asn>(&ip_clone) {
+            //          if let Some(mut host) = hosts_clone.get_mut(&ip_str_clone) {
+            //              host.asn = asn_lookup.autonomous_system_organization.map(|s| format!("AS{} {}", asn_lookup.autonomous_system_number.unwrap_or_default(), s));
+            //          }
+            //      }
+            // }
+
+            // Remove the old pattern-based lookup:
+            // if let Some((country, country_code, asn)) = lookup_geolocation(&ip_clone).await { ... }
         });
     }
 }

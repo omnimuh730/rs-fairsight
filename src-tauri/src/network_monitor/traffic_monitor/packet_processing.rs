@@ -1,6 +1,6 @@
 use pcap::{Capture, Device};
 use etherparse::LaxPacketHeaders;
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, IpNet};
 use std::time::{SystemTime, UNIX_EPOCH};
 use std::sync::Arc;
 use dashmap::DashMap;
@@ -12,6 +12,7 @@ use super::deduplication::{create_packet_signature, is_duplicate_packet, registe
 use super::service_analysis::process_service_from_packet;
 use super::host_analysis::process_host_from_packet;
 use super::monitor::TRAFFIC_MONITORS;
+use crate::network_monitor::network_engine::adapters::get_local_ips;\n
 
 pub fn create_packet_capture(adapter_name: &str) -> Option<Capture<pcap::Active>> {
     crate::log_info!("packet_capture", "Attempting to create packet capture for adapter: '{}'", adapter_name);
@@ -29,7 +30,7 @@ pub fn create_packet_capture(adapter_name: &str) -> Option<Capture<pcap::Active>
                     match inactive
                         .promisc(true)
                         .buffer_size(8_000_000)  // Increase to 8MB buffer for better capture
-                        .snaplen(200)            // Limit packet slice but count full packet size
+                        // .snaplen(200)            // Limit packet slice but count full packet size\n                        .snaplen(65535)          // Capture full packets
                         .immediate_mode(true)    // Parse packets ASAP
                         .timeout(100)            // Shorter timeout for more responsive capture
                         .open() {
@@ -76,6 +77,7 @@ pub async fn process_real_packet(
     start_time: u64,
     adapter_name: &str,
     last_known_date: &Arc<RwLock<Option<u32>>>,
+    local_ips: &Arc<RwLock<Vec<IpNet>>>,
 ) {
     let today = Local::now().ordinal();
     let needs_reset = {
@@ -140,7 +142,7 @@ pub async fn process_real_packet(
         crate::utils::health_monitor::report_network_activity();
 
         let packet_size = packet.header.len as u64;
-        let is_outgoing = is_outgoing_traffic(&src_ip);
+        let is_outgoing = is_outgoing_traffic(&src_ip, local_ips.read().as_ref());
 
         let target_ip = if is_outgoing { &dst_ip } else { &src_ip };
         process_host_from_packet(target_ip, packet_size, is_outgoing, hosts, now).await;
